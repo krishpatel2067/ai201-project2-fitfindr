@@ -12,27 +12,54 @@
 List every tool your agent will use. For each tool, fill in all four fields.
 You must have at least 3 tools. The three required tools are listed — add any additional tools below them.
 
-### Tool 1: search_listings
+### Tool 1: `search_listings`
 
 **What it does:**
 
 <!-- Describe what this tool does in 1–2 sentences -->
 
+Searches through a database to find a list of clothing items that match the description as well as size and price constraints (if any), sorted in ascending order by relevance.
+
 **Input parameters:**
 
 <!-- List each parameter, its type, and what it represents -->
 
-- `description` (str): ...
-- `size` (str): ...
-- `max_price` (float): ...
+- `description` (`str`): Short descriptive phrase extracted from the user query to match against.
+- `size` (`str` | `None`): The size of the clothing. Valid formats: "S", "S/M", "US 9", "W28", "One Size" with some having paretheses (e.g. "One Size (adjustable)" or "XL (oversized)").
+- `max_price` (`float` | `None`): The user's desired maximum price for the new clothing.
 
 **What it returns:**
 
 <!-- Describe the return value — what fields does a result contain? -->
 
+Type: `list[dict]`
+
+Each `dict` contains:
+
+```py
+{
+     "id": str,               # unique clothing item ID, e.g. "lst_001"
+     "title": str,            # user-friendly item title, e.g. "Y2K Baby Tee — Butterfly Print"
+     "description": str,      # short description (~150 chars max)
+     "category": str,         # item category, e.g. "tops", "bottoms", "outerwear", "shoes", "accessories"
+     "style_tags": list[str], # list of style descriptors, e.g. ["vintage", "grunge", "90s"]
+     "size": str,             # size of piece; formats: "S", "S/M", "US 9", "W28", "One Size"
+                              # some have paretheses (e.g. "One Size (adjustable)" or "XL (oversized)")
+     "condition": str,        # condition of item; one of: "fair", "good", "excellent"
+     "price": float,          # price of item, e.g. 18.00
+     "colors": list[str],     # list of colors item has, e.g. ["white", "pink", "purple"]
+     "brand": str | None,     # item brand (if known), e.g. "Levi's"
+     "platform": str          # platform on which item is listed, e.g. "depop"
+}
+```
+
 **What happens if it fails or returns nothing:**
 
 <!-- What should the agent do if no listings match? -->
+
+In the case of an error or no-result-found return, the agent should alert the user but also gracefully salvage the situation by offering a helpful response. For example:
+
+> Unfortunately, I couldn't find any clothing in my database matching your descriptions and constraints. But here are a few tips: check your description for spelling, use a higher price, or try a different size.
 
 ---
 
@@ -42,20 +69,30 @@ You must have at least 3 tools. The three required tools are listed — add any 
 
 <!-- Describe what this tool does in 1–2 sentences -->
 
+Suggests 1-2 complete outfits given the thrifted item (the top from `search_listings`) and the user's wardrobe.
+
 **Input parameters:**
 
 <!-- List each parameter, its type, and what it represents -->
 
-- `new_item` (dict): ...
-- `wardrobe` (dict): ...
+- `new_item` (`dict`): The newly thrifted clothing item.
+- `wardrobe` (`dict`): Contains a list of clothing in the user's wardrobe under an "items" key, which may be an empty list.
 
 **What it returns:**
 
 <!-- Describe the return value -->
 
+Type: `str`
+
+A non-empty string with outfit suggestions. If the wardrobe is empty, general styling advice instead.
+
 **What happens if it fails or returns nothing:**
 
 <!-- What should the agent do if the wardrobe is empty or no outfit can be suggested? -->
+
+If the tool's own fallback mechanism of offering general advice fails due to an empty wardrobe, the tool returns no suggestions. Handle this edge case in the main agent loop by retrying once, and if it still doesn't work, resorting to the next relevant item from the call to `search_listings`. If in the rare case that no suggestion can be found for _all_ the matched items (or a specific max amount of them), the agent can offer helpful tips on getting a better answer, e.g.:
+
+> Sadly, I couldn't come up with an outfit suggestion for any of the items I found matching your constraints. Try adding items to your wardrobe, or tweaking or original constraints.
 
 ---
 
@@ -65,19 +102,36 @@ You must have at least 3 tools. The three required tools are listed — add any 
 
 <!-- Describe what this tool does in 1–2 sentences -->
 
+Generates a short, social-media-shareable outfit caption for the newly thrifted item from `search_listings` and the outfit suggestion from `suggest_outfit`.
+
 **Input parameters:**
 
 <!-- List each parameter, its type, and what it represents -->
 
-- `outfit` (...): ...
+- `outfit` (`str`): The outfit suggestion matching the user's wardrobe.
+- `new_item` (`dict`): The newly thrifted clothing item.
 
 **What it returns:**
 
 <!-- Describe the return value -->
 
+Type: `str`
+
+A 2-4 sentence Instagram/TikTok-style caption, or an error message if the caption could not be generated.
+
 **What happens if it fails or returns nothing:**
 
 <!-- What should the agent do if the outfit data is incomplete? -->
+
+Given the previous tool calls succeeded (otherwise, the agent should not reach this tool call), the agent can show the some of the items it found and the outfit suggestion(s), giving the user the material necessary to craft the caption on their own without leaving them emptyhanded. For example:
+
+> I can't seem to generate a caption at this moment. But look what I found that matched your constraints:
+>
+> \<items listed with name, size, cost, description, etc.>
+>
+> And I can offer you my suggestion for a great outfit that pairs well with that \<top-most item>:
+>
+> \<outfit suggesstion>
 
 ---
 
