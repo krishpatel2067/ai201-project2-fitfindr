@@ -123,7 +123,7 @@ A 2-4 sentence Instagram/TikTok-style caption, or an error message if the captio
 
 <!-- What should the agent do if the outfit data is incomplete? -->
 
-Given the previous tool calls succeeded (otherwise, the agent should not reach this tool call), the agent can show the some of the items it found and the outfit suggestion(s), giving the user the material necessary to craft the caption on their own without leaving them emptyhanded. For example:
+Given the previous tool calls succeeded (otherwise, the agent should not reach this tool call), the agent can retry. If that doesn't work, it can show the some of the items it found and the outfit suggestion(s), giving the user the material necessary to craft the caption on their own without leaving them emptyhanded. For example:
 
 > I can't seem to generate a caption at this moment. But look what I found that matched your constraints:
 >
@@ -146,6 +146,26 @@ Given the previous tool calls succeeded (otherwise, the agent should not reach t
 **How does your agent decide which tool to call next?**
 
 <!-- Describe the logic your planning loop uses. What does it look at? What conditions change its behavior? How does it know when it's done? -->
+
+The general order should be the following (the numbered steps are the happy path, and the bulleted / lettered steps are the exit conditions upon failure modes):
+
+1. Check the user's query for adequacy: the required clothing description and relevance to the app's goal.
+   - Do not make any tool calls for inadequate queries. Only generate the final response, depending on the case below.
+   - If the user's query is vague, ask for clarification, especially asking for a description and optionally size and maximum price.
+   - If the user's query is irrelevant, state that and your domain of expertise.
+2. Call `search_listings` with the extracted clothing description, size (if any), and maximum price (if any).
+   - If the returned list is empty, mention to the user that no matching items could be found in the database. Additionally, offer tips for a successful match next time, e.g. correct spelling, different size and/or price, etc.
+3. Call `suggest_outfit` with the chosen clothing item and the user's wardrobe. Initially, this chosen clothing item is the first one in the list returned from `search_listings`.
+   a. If suggestion returned is an empty string, retry once by making the same tool call to `suggest_outfit` again.
+   b. If that result is also empty, choose the next clothing item in the list returned from `search_listings`.
+   c. Go to Step 3. The newly thrifted item is the first one whose outfit suggestion is non-empty. Repeat until the specified max fallback item count is reached or all the list items run out, whichever is first.
+   d. Mention that you can't make an outfit suggestion. Suggest to the user ways to improve the outcome next time: adding items to their wardrobe, tweaking their original description, etc.
+4. Call `create_fit_card` with the suggested outfit and newly thrifted item.
+   a. Retry once with the same exact call.
+   b. If that fails, mention that you were unable to generate a social media outfit caption. In addition, reveal the newly thrifted item information and outfit suggestion to them.
+5. Output the final caption to the user.
+
+However, the system prompt shouldn't include all these details to leave the agent with some flexibility to reason.
 
 ---
 
