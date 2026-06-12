@@ -15,18 +15,23 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ### Tool 1: search_listings
 
 **What it does:**
+
 <!-- Describe what this tool does in 1–2 sentences -->
 
 **Input parameters:**
+
 <!-- List each parameter, its type, and what it represents -->
+
 - `description` (str): ...
 - `size` (str): ...
 - `max_price` (float): ...
 
 **What it returns:**
+
 <!-- Describe the return value — what fields does a result contain? -->
 
 **What happens if it fails or returns nothing:**
+
 <!-- What should the agent do if no listings match? -->
 
 ---
@@ -34,17 +39,22 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ### Tool 2: suggest_outfit
 
 **What it does:**
+
 <!-- Describe what this tool does in 1–2 sentences -->
 
 **Input parameters:**
+
 <!-- List each parameter, its type, and what it represents -->
+
 - `new_item` (dict): ...
 - `wardrobe` (dict): ...
 
 **What it returns:**
+
 <!-- Describe the return value -->
 
 **What happens if it fails or returns nothing:**
+
 <!-- What should the agent do if the wardrobe is empty or no outfit can be suggested? -->
 
 ---
@@ -52,16 +62,21 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ### Tool 3: create_fit_card
 
 **What it does:**
+
 <!-- Describe what this tool does in 1–2 sentences -->
 
 **Input parameters:**
+
 <!-- List each parameter, its type, and what it represents -->
+
 - `outfit` (...): ...
 
 **What it returns:**
+
 <!-- Describe the return value -->
 
 **What happens if it fails or returns nothing:**
+
 <!-- What should the agent do if the outfit data is incomplete? -->
 
 ---
@@ -75,6 +90,7 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ## Planning Loop
 
 **How does your agent decide which tool to call next?**
+
 <!-- Describe the logic your planning loop uses. What does it look at? What conditions change its behavior? How does it know when it's done? -->
 
 ---
@@ -82,6 +98,7 @@ You must have at least 3 tools. The three required tools are listed — add any 
 ## State Management
 
 **How does information from one tool get passed to the next?**
+
 <!-- Describe how your agent stores and accesses state within a session. What data is tracked? How is it passed between tool calls? -->
 
 ---
@@ -90,11 +107,11 @@ You must have at least 3 tools. The three required tools are listed — add any 
 
 For each tool, describe the specific failure mode you're handling and what the agent does in response.
 
-| Tool | Failure mode | Agent response |
-|------|-------------|----------------|
-| search_listings | No results match the query | |
-| suggest_outfit | Wardrobe is empty | |
-| create_fit_card | Outfit input is missing or incomplete | |
+| Tool            | Failure mode                          | Agent response |
+| --------------- | ------------------------------------- | -------------- |
+| search_listings | No results match the query            |                |
+| suggest_outfit  | Wardrobe is empty                     |                |
+| create_fit_card | Outfit input is missing or incomplete |                |
 
 ---
 
@@ -137,13 +154,92 @@ Write out what a full user interaction looks like from start to finish — tool 
 **Example user query:** "I'm looking for a vintage graphic tee under $30. I mostly wear baggy jeans and chunky sneakers. What's out there and how would I style it?"
 
 **Step 1:**
+
 <!-- What does the agent do first? Which tool is called? With what input? -->
 
+Find the desired clothing, if it exists, via a call to the tool `search_listings`:
+
+```py
+search_listings(
+     description="vintage graphic tee",
+     size=None,                            # user doesn't mention size
+     max_price=30.0
+)
+```
+
+Result (assuming matches are found), sorted by relevance in descending order:
+
+```
+[
+     { <top result - most relevant clothing item> },
+     {     <2nd most relevant clothing item>      },
+                         ...
+     {      <least relevant clothing item>        },
+]
+```
+
+Example top result:
+
+```
+<Faded Band Tee — $22, Depop, Good condition>
+```
+
 **Step 2:**
+
 <!-- What happens next? What was returned from step 1? What tool is called now? -->
 
+Suggest an outfit via a tool call to `suggest_outfit`:
+
+```py
+suggest_outfit(
+     new_item=<top result>
+     wardrobe=<wardrobe>
+)
+```
+
+- `<top result>` comes directly from the `search_listings` tool call in Step 1
+- `<wardrobe>` is loaded from the helper function `get_example_wardrobe` in `utils/data_loader.py`
+
+Result:
+
+```
+<outfit suggestion in natural language>
+```
+
+Example:
+
+```
+Pair this with your wide-leg jeans and platform Docs for a classic 90s grunge look. Roll the sleeves once and tuck the front corner slightly for shape.
+```
+
 **Step 3:**
+
 <!-- Continue until the full interaction is complete -->
 
+```py
+create_fit_card(
+     new_item=<top result>,
+     outfit=<suggestion>,
+)
+```
+
+- `<top result>` comes from `search_listings` in Step 1
+- `<suggestion>` comes from `suggest_outfit` in Step 2
+
+Result:
+
+```
+<short social-media-friendly caption about the new item and outfit>
+```
+
+Example:
+
+```
+thrifted this faded band tee off depop for $22 and honestly it was made for my wide-legs 🖤 full look in my stories
+```
+
 **Final output to user:**
+
 <!-- What does the user actually see at the end? -->
+
+The user sees the final TikTok/Instagram-friendly caption describing the newly acquired item and how it fits into their current wardrobe and outfit.
