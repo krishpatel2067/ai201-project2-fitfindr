@@ -14,11 +14,11 @@ but check your terminal — the port may differ).
 
 import gradio as gr
 
-from agent import run_agent
+from scripts.agent import run_agent
 from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
 
-
 # ── query handler ─────────────────────────────────────────────────────────────
+
 
 def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
     """
@@ -54,8 +54,9 @@ EXAMPLE_QUERIES = [
     "90s track jacket in size M",
     "flowy midi skirt under $40",
     "black combat boots size 8",
-    "designer ballgown size XXS under $5",   # deliberate no-results test
+    "designer ballgown size XXS under $5",  # deliberate no-results test
 ]
+
 
 def build_interface():
     with gr.Blocks(title="FitFindr") as demo:

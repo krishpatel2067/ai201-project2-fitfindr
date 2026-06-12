@@ -18,10 +18,10 @@ Usage (once implemented):
     print(result["error"])   # None on success
 """
 
-from tools import search_listings, suggest_outfit, create_fit_card
-
+from scripts.tools import search_listings, suggest_outfit, create_fit_card
 
 # ── session state ─────────────────────────────────────────────────────────────
+
 
 def _new_session(query: str, wardrobe: dict) -> dict:
     """
@@ -34,18 +34,19 @@ def _new_session(query: str, wardrobe: dict) -> dict:
     You may add fields to this dict as needed for your implementation.
     """
     return {
-        "query": query,              # original user query
-        "parsed": {},                # extracted description / size / max_price
-        "search_results": [],        # list of matching listing dicts
-        "selected_item": None,       # top result, passed into suggest_outfit
-        "wardrobe": wardrobe,        # user's wardrobe dict
-        "outfit_suggestion": None,   # string returned by suggest_outfit
-        "fit_card": None,            # string returned by create_fit_card
-        "error": None,               # set if the interaction ended early
+        "query": query,  # original user query
+        "parsed": {},  # extracted description / size / max_price
+        "search_results": [],  # list of matching listing dicts
+        "selected_item": None,  # top result, passed into suggest_outfit
+        "wardrobe": wardrobe,  # user's wardrobe dict
+        "outfit_suggestion": None,  # string returned by suggest_outfit
+        "fit_card": None,  # string returned by create_fit_card
+        "error": None,  # set if the interaction ended early
     }
 
 
 # ── planning loop ─────────────────────────────────────────────────────────────
+
 
 def run_agent(query: str, wardrobe: dict) -> dict:
     """
