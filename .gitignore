@@ -14,3 +14,8 @@ env/
 
 # macOS
 .DS_Store
+
+# custom
+temp.md
+temp_test.py
+test.json

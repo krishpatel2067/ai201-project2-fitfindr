@@ -13,6 +13,7 @@ Tools:
 """
 
 import os
+import re
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -44,6 +45,7 @@ def search_listings(
     description: str,
     size: str | None = None,
     max_price: float | None = None,
+    _with_score: bool | None = False,
 ) -> list[dict]:
     """
     Search the mock listings dataset for items matching the description,
@@ -73,8 +75,92 @@ def search_listings(
 
     Before writing code, fill in the Tool 1 section of planning.md.
     """
-    # Replace this with your implementation
-    return []
+    description = (description or "").strip()
+    if not description:
+        return []
+
+    def _tokenize(text: str) -> set[str]:
+        # remove apostrophes: "Levi's" -> "Levis"
+        normalized = re.sub(r"'", "", text.lower())
+        # punctuation to whitespace: "word - word" -> "word   word"; "word/word" -> "word word"
+        normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
+        return set(token for token in normalized.split() if token)
+
+    def _tokenize_list(text: str) -> list[str]:
+        # return a list of tokens (preserves duplicates for counting)
+        normalized = re.sub(r"'", "", text.lower())
+        normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
+        return [token for token in normalized.split() if token]
+
+    def _normalize_size(size_value: str) -> set[str]:
+        cleaned = re.sub(r"[()\[\],]", "", size_value.lower())
+        cleaned = cleaned.replace("/", " ")
+        return set(token.strip() for token in cleaned.split() if token.strip())
+
+    query_tokens = _tokenize(description)
+    search_size_tokens = _normalize_size(size) if size else None
+
+    # 1. Load all listings with load_listings().
+    listings = load_listings()
+
+    filtered_listings: list[tuple[int, dict]] = []
+    for listing in listings:
+        listing_size = listing.get("size", "")
+        listing_price = listing.get("price")
+
+        # 2. Filter by max_price and size (if provided).
+        if max_price is not None and listing_price is not None:
+            if listing_price > max_price:
+                continue
+
+        if search_size_tokens is not None:
+            listing_size_tokens = _normalize_size(listing_size)
+            if not (search_size_tokens & listing_size_tokens):
+                continue
+
+        # 3. Score each remaining listing by keyword overlap with `description`.
+        # Use token lists (not sets) for listing fields so repeated matches count.
+        title_tokens_list = _tokenize_list(listing.get("title") or "")
+        description_tokens_list = _tokenize_list(listing.get("description") or "")
+        category_tokens_list = _tokenize_list(listing.get("category") or "")
+        brand_tokens_list = _tokenize_list(listing.get("brand") or "")
+
+        style_tokens_list: list[str] = []
+        for t in listing.get("style_tags") or []:
+            style_tokens_list.extend(_tokenize_list(str(t)))
+
+        color_tokens_list: list[str] = []
+        for c in listing.get("colors") or []:
+            color_tokens_list.extend(_tokenize_list(str(c)))
+
+        # Count total occurrences of each query token across all fields.
+        score = 0
+        for token in query_tokens:
+            score += title_tokens_list.count(token)
+            score += description_tokens_list.count(token)
+            score += category_tokens_list.count(token)
+            score += brand_tokens_list.count(token)
+            score += sum(t == token for t in style_tokens_list)
+            score += sum(c == token for c in color_tokens_list)
+
+        # 4. Drop any listings with a score of 0 (no relevant matches).
+        if score == 0:
+            continue
+
+        # Preserve score for sorting, then discard before return.
+        filtered_listings.append((score, listing))
+
+    # 5. Sort by score, highest first, and return the listing dicts.
+    # sort by id (secondary key) in ascending order
+    filtered_listings.sort(key=lambda item: item[1]["id"])
+    # sort by score (primary key) in descending order
+    filtered_listings.sort(key=lambda item: item[0], reverse=True)
+
+    return (
+        filtered_listings
+        if _with_score
+        else [listing for _, listing in filtered_listings]
+    )
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────

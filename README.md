@@ -22,6 +22,7 @@ pip install -r requirements.txt
 ```
 
 Set your Groq API key in a `.env` file (get a free key at [console.groq.com](https://console.groq.com)):
+
 ```
 GROQ_API_KEY=your_key_here
 ```
@@ -33,6 +34,7 @@ GROQ_API_KEY=your_key_here
 Each listing has: `id`, `title`, `description`, `category`, `style_tags`, `size`, `condition`, `price`, `colors`, `brand`, and `platform`.
 
 Load it with:
+
 ```python
 from utils.data_loader import load_listings
 listings = load_listings()
@@ -47,6 +49,7 @@ listings = load_listings()
 - `empty_wardrobe`: a starting template for a new user
 
 Load an example wardrobe with:
+
 ```python
 from utils.data_loader import get_example_wardrobe
 wardrobe = get_example_wardrobe()
@@ -59,3 +62,9 @@ wardrobe = get_example_wardrobe()
 3. Build and test each tool individually before connecting them through your planning loop.
 
 Your implementation files go in this same directory. There's no required file structure for your agent code — organize it however makes sense for your design.
+
+## Notes
+
+- AI didn't do as intended:
+  - Had to manually write `normalized = re.sub(r"'", "", text.lower())` in `_tokenize`.
+    - Initial scoring in `search_listings` didn't take into account repetition in each field and across fields.
