@@ -225,32 +225,39 @@ User query
 Planning Loop
     |
     |--> search_listings(description, size, max_price)
-    │       │ FAILURE: search_listings=[]
-    │       |--> Give user tips for better result; RETURN
-    │       │
-    │       │ search_listings=[item0, item1, ...]
+    │       │  FAILURE: search_listings=[]
+    │       |------------------------------> RETURN
+    │       │                                (Give user tips for better result)
     │       v
-    │   Session: selected_item=search_listings[0]
+    │   Session: selected_item=search_listings[0];
+    |       |    search_listings=[item0, item1, ...]
     │       │
-    |--> suggest_outfit(selected_item, wardrobe)    <------
-    |       |-> Session: outfit_suggestion="..."          |
-    |       |                                             i += 1
-    |       |                                   selected_item=search_listings[i]
+    |--> suggest_outfit(selected_item, wardrobe) <--------|
     |       |                                             |
-    |       | FAILURE: outfit_suggestion="" ---------------
-    |       |       |                        Items left in search_listings, AND
-    |       |       |                        Iter count below max
-    |       |       |
-    |       |       ----------------------------------------->  Give tips for better result;
-    |       |         No more items in search_listings, OR      RETURN
-    |       |         Iter count hit max
-    │       V
+    |       |                                  i += 1;
+    |   Session: outfit_suggestion="..."       selected_item=search_listings[i]
+    |       |  FAILURE: outfit_suggestion=""              |
+    |       |                                 FAIL        |
+    |       |---> Retry once -----------------------------|
+    |       |     | |                        Items left in search_listings, AND
+    |       |     | |  FAIL                  Iter count below max
+    |       |     | |
+    |       |     | |  Depleted search_listings, OR
+    |       |     | |  Iter count hit max
+    |       |     | |---------------------------> RETURN
+    |       |-----|                               (Give tips for better result)
+    |       |  SUCCESS
+    │       |
     |--> create_fit_card(outfit_suggestion, selected_item)
             │
-        Session: fit_card = "..."
-            │                                             error path returns here
+        Session: fit_card="..."
+            |  FAILURE: fit_card=""
+            │--> Retry once -------------------> RETURN
+            |       |                FAIL        (Reveal some search_listings;)
+            |-------|                            (Show outfit suggestion;)
+            |  SUCCESS
             v
-        Return session
+        RETURN fit_card
 ```
 
 ---
