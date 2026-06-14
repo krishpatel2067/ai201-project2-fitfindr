@@ -67,4 +67,5 @@ Your implementation files go in this same directory. There's no required file st
 
 - AI didn't do as intended:
   - Had to manually write `normalized = re.sub(r"'", "", text.lower())` in `_tokenize`.
-    - Initial scoring in `search_listings` didn't take into account repetition in each field and across fields.
+  - Initial scoring in `search_listings` didn't take into account repetition in each field and across fields.
+  - Generated an overly cautious implemention of `suggest_outfit`: Lots of `isinstance` checks instead of simply `result.choices[0].message.content`

@@ -78,6 +78,37 @@ Suggests 1-2 complete outfits given the thrifted item (the top from `search_list
 - `new_item` (`dict`): The newly thrifted clothing item.
 - `wardrobe` (`dict`): Contains a list of clothing in the user's wardrobe under an "items" key, which may be an empty list.
 
+`new_item` example:
+
+```
+{
+     "id": "lst_028",
+     "title": "Suede Chelsea Boots — Tan",
+     "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
+     "category": "shoes",
+     "style_tags": ["vintage", "classic", "western", "earth tones"],
+     "size": "US 8.5",
+     "condition": "fair",
+     "price": 44.00,
+     "colors": ["tan", "camel"],
+     "brand": null,
+     "platform": "poshmark"
+}
+```
+
+`wardrobe` schema (the format of each item inside the key "items"):
+
+```
+{
+     "id": "string — unique identifier for this item",
+     "name": "string — short description of the piece",
+     "category": "string — one of: tops, bottoms, outerwear, shoes, accessories",
+     "colors": ["string — list of colors this item contains"],
+     "style_tags": ["string — list of style descriptors"],
+     "notes": "string (optional) — any notes about fit, how the user styles it, etc."
+}
+```
+
 **What it returns:**
 
 <!-- Describe the return value -->
@@ -90,7 +121,7 @@ A non-empty string with outfit suggestions. If the wardrobe is empty, general st
 
 <!-- What should the agent do if the wardrobe is empty or no outfit can be suggested? -->
 
-If the tool's own fallback mechanism of offering general advice fails due to an empty wardrobe, the tool returns no suggestions. Handle this edge case in the main agent loop by retrying once, and if it still doesn't work, resorting to the next relevant item from the call to `search_listings`. If in the rare case that no suggestion can be found for _all_ the matched items (or a specific max amount of them), the agent can offer helpful tips on getting a better answer, e.g.:
+If the tool's own conditional mechanism of offering general advice fails due to an empty wardrobe, the tool returns no suggestions - an empty string (for example, in the event of a 400 error in the Groq API). Handle this edge case in the main agent loop by retrying once, and if it still doesn't work, resorting to the next relevant item from the call to `search_listings`. If in the rare case that no suggestion can be found for _all_ the matched items (or a specific max amount of them), the agent can offer helpful tips on getting a better answer, e.g.:
 
 > Sadly, I couldn't come up with an outfit suggestion for any of the items I found matching your constraints. Try adding items to your wardrobe, or tweaking or original constraints.
 

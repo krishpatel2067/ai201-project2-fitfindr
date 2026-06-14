@@ -14,6 +14,7 @@ Tools:
 
 import os
 import re
+import random
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -23,6 +24,25 @@ from utils.data_loader import load_listings
 
 load_dotenv()
 
+# ── System prompts ────────────────────────────────────────────────────────────
+NON_EMPTY_WARDROBE_OUTFIT_PROMPT = (
+    "You are a fashion advisor. Take a newly thrifted clothing item and a "
+    "wardrobe of existing clothing items, and give a 1-2 sentence outfit "
+    "suggestion incorporating the new item with some wardrobe items. As a "
+    "fashion advisor, use an informal, friendly, and lighthearted tone. Be "
+    "creative with the suggestions, but make sure they are helpful to the "
+    "user. Do NOT mention yourself (no 'I', 'me', etc.). Only give one "
+    "suggestion - do NOT give alternatives or choices."
+)
+
+EMPTY_WARDROBE_OUTFIT_PROMPT = (
+    "You are a fashion advisor. Take a newly thrifted clothing item, and give "
+    "1-2 sentences of general styling advice. As a fashion advisor, use an "
+    "informal, friendly, and lighthearted tone. Be creative with the "
+    "suggestions, but make sure they are helpful to the user. Do NOT mention "
+    "yourself (no 'I', 'me', etc.). Only give one suggestion - do NOT give "
+    "alternatives or choices."
+)
 
 # ── Groq client ───────────────────────────────────────────────────────────────
 
@@ -168,7 +188,7 @@ def search_listings(
 
 def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     """
-    Given a thrifted item and the user's wardrobe, suggest 1–2 complete outfits.
+    Given a thrifted item and the user's wardrobe, suggest a complete outfit.
 
     Args:
         new_item: A listing dict (the item the user is considering buying).
@@ -188,11 +208,78 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
            the LLM to suggest specific outfit combinations using the new item
            and named pieces from the wardrobe.
         4. Return the LLM's response as a string.
-
-    Before writing code, fill in the Tool 2 section of planning.md.
     """
-    # Replace this with your implementation
-    return ""
+    wardrobe_items = wardrobe.get("items")
+
+    # Helper to format an item succinctly for the LLM prompt
+    def _format_item_for_prompt(item: dict) -> str:
+        parts = []
+        name = item.get("name") or "UNKNOWN"
+        parts.append(f"{name}")
+        cat = item.get("category")
+        if cat:
+            parts.append(f"Category: {cat}")
+        colors = item.get("colors")
+        if colors:
+            parts.append(f"Colors: {', '.join(colors)}")
+        styles = item.get("style_tags")
+        if styles:
+            parts.append(f"Style tags: {', '.join(styles)}")
+        notes = item.get("notes")
+        if notes:
+            parts.append(f"Notes: {notes}")
+        return "\n".join(parts)
+
+    # Build the system + user prompt
+    item_summary_lines = [
+        f"Item: {new_item.get('title') or "UNKNOWN"}",
+        f"Category: {new_item.get('category') or "UNKNOWN"}",
+        f"Colors: {', '.join(new_item.get('colors') or []) or "UNKNOWN"}",
+        f"Style tags: {', '.join(new_item.get('style_tags') or []) or "NONE"}",
+        f"Price: {"$" + str(new_item.get('price')) if new_item.get('price') is not None else 'UNKNOWN'}",
+        f"Platform: {new_item.get('platform') or "UNKNOWN"}",
+        f"Description: {new_item.get('description') or "NONE"}",
+    ]
+
+    # 1. Check whether wardrobe['items'] is empty.
+    if not wardrobe_items:
+        # 2. If empty: call the LLM with a prompt for general styling ideas.
+        system_prompt = EMPTY_WARDROBE_OUTFIT_PROMPT
+        user_prompt = "NEWLY THRIFTED CLOTHING ITEM:\n\n" + "\n".join(
+            item_summary_lines
+        )
+    else:
+        # 3. If not empty: format the wardrobe items into a prompt and ask
+        #    the LLM to suggest specific outfit combinations using the new item
+        #    and named pieces from the wardrobe.
+        system_prompt = NON_EMPTY_WARDROBE_OUTFIT_PROMPT
+        picks = random.sample(wardrobe_items, k=min(10, len(wardrobe_items)))
+        formatted = [_format_item_for_prompt(it) for it in picks]
+        wardrobe_block = "\n\n".join(formatted)
+        user_prompt = (
+            "NEWLY THRIFTED CLOTHING ITEM:\n\n"
+            + "\n".join(item_summary_lines)
+            + "\n\nWARDROBE ITEMS:\n\n"
+            + wardrobe_block
+        )
+
+    # Call Groq chat completions API and return the model text response directly
+    try:
+        client = _get_groq_client()
+        result = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.8,
+        )
+        # 4. Return the LLM's response as a string.
+        return result.choices[0].message.content
+    except Exception as e:
+        # potential errors like 400
+        print("[ERROR] suggest_outfit:", e)
+        return ""
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
