@@ -142,6 +142,24 @@ Generates a short, social-media-shareable outfit caption for the newly thrifted 
 - `outfit` (`str`): The outfit suggestion matching the user's wardrobe.
 - `new_item` (`dict`): The newly thrifted clothing item.
 
+`new_item` example:
+
+```
+{
+     "id": "lst_028",
+     "title": "Suede Chelsea Boots — Tan",
+     "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
+     "category": "shoes",
+     "style_tags": ["vintage", "classic", "western", "earth tones"],
+     "size": "US 8.5",
+     "condition": "fair",
+     "price": 44.00,
+     "colors": ["tan", "camel"],
+     "brand": null,
+     "platform": "poshmark"
+}
+```
+
 **What it returns:**
 
 <!-- Describe the return value -->
