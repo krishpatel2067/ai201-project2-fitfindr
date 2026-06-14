@@ -277,7 +277,11 @@ Planning Loop
 
 **Milestone 3 — Individual tool implementations:**
 
+I plan to use Claude Code for this milestone. I'll give it the "Tools" section of `planning.md`, which spells out the implementation details of each tool and will help the AI to generate the code I intend. When I prompt the AI one-by-one, I expect it to produce the implementations of each tool in separate phases, allowing me to test and bebug each one before starting a new one. I'll verify that the output matches my spec by performing line-by-line review of the code, asking the AI any questions about the code if I have any. Then, I'll test each tool to see that it works as intended, reprompting the AI if necessary.
+
 **Milestone 4 — Planning loop and state management:**
+
+I'll again use Claude Code for this milestone. But this time, I'll give it the "State Management", "Error Handling", and "Architecture" sections of `planning.md`, which will help the AI properly understand my expectations and generate the planning loop with proper state management. I expect it to produce code that contains a robust agentic planning loop using Groq's tool API as well as the appropriately variables to manage state. To verify the AI's output, I will scan the code generated line-by-line to pick out any glaring deviations, then test the whole system multiple times for a final sanity check. I will reprompt the AI if any adjustments are necessary.
 
 ---
 
