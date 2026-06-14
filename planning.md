@@ -161,7 +161,7 @@ The general order should be the following (the numbered steps are the happy path
    c. Go to Step 3. The newly thrifted item is the first one whose outfit suggestion is non-empty. Repeat until the specified max fallback item count is reached or all the list items run out, whichever is first.
    d. Mention that you can't make an outfit suggestion. Suggest to the user ways to improve the outcome next time: adding items to their wardrobe, tweaking their original description, etc.
 4. Call `create_fit_card` with the suggested outfit and newly thrifted item.
-   a. Retry once with the same exact call.
+   a. If the returned caption is empty, retry once with the same exact call.
    b. If that fails, mention that you were unable to generate a social media outfit caption. In addition, reveal the newly thrifted item information and outfit suggestion to them.
 5. Output the final caption to the user.
 
@@ -175,17 +175,35 @@ However, the system prompt shouldn't include all these details to leave the agen
 
 <!-- Describe how your agent stores and accesses state within a session. What data is tracked? How is it passed between tool calls? -->
 
+| Variable            | Initial Value | Description                                                                 |
+| ------------------- | ------------- | --------------------------------------------------------------------------- |
+| `relevant_listings` | `[]`          | Stores the list of items returned by `search_listings`                      |
+| `selected_item`     | `{}`          | Set to `relevant_listings[i]`, starting with `i=0` (the most relevant item) |
+| `outfit_suggestion` | `""`          | Set to the return value of `suggest_outfit`                                 |
+| `fit_card`          | `""`          | Final social media caption returned by `create_fit_card`                    |
+
+General state management (some steps hidden for concision):
+
+1. Call `search_listings`. Store return value in `relevant_listings`.
+2. While `outfit_suggestion` is empty and iteration count is below a certain max:
+   a. Set `selected_item` to `relevant_listings[i]` (`i` starting at `0`).
+   b. Call `suggest_outfit` with `selected_item` a param. Store return value in `outfit_suggestion`.
+3. Call `create_fit_card` with `selected_item` and `outfit_suggestion` as params. Store return value in `fit_card`.
+
 ---
 
 ## Error Handling
 
-For each tool, describe the specific failure mode you're handling and what the agent does in response.
+<!-- For each tool, describe the specific failure mode you're handling and what the agent does in response. -->
 
-| Tool            | Failure mode                          | Agent response |
-| --------------- | ------------------------------------- | -------------- |
-| search_listings | No results match the query            |                |
-| suggest_outfit  | Wardrobe is empty                     |                |
-| create_fit_card | Outfit input is missing or incomplete |                |
+Each failure mode is first acknowledged to the user, then the items from `Agent Response` apply.
+
+| Tool              | Failure Mode                          | Agent Response                                                                                |
+| ----------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `search_listings` | No results match the query            | Give user tips for a better match next time                                                   |
+| `suggest_outfit`  | Wardrobe is empty                     | Nudge user to add items to wardrobe; temporarily resort to example wardrobe                   |
+| `suggest_outfit`  | Outfit input is missing or incomplete | Retry once; go to next relevant item; repeat; if all fails, give user tips for better outcome |
+| `create_fit_card` | Caption returned is empty             | Retry once; if it fails, reveal to user some relevant items and outfit suggestion             |
 
 ---
 
@@ -199,6 +217,41 @@ For each tool, describe the specific failure mode you're handling and what the a
      ASCII art, a Mermaid diagram (https://mermaid.js.org/syntax/flowchart.html), or an embedded
      sketch are all fine. You'll share this diagram with an AI tool when asking it to implement
      the planning loop and each individual tool. -->
+
+```
+User query
+    │
+    v
+Planning Loop
+    |
+    |--> search_listings(description, size, max_price)
+    │       │ FAILURE: search_listings=[]
+    │       |--> Give user tips for better result; RETURN
+    │       │
+    │       │ search_listings=[item0, item1, ...]
+    │       v
+    │   Session: selected_item=search_listings[0]
+    │       │
+    |--> suggest_outfit(selected_item, wardrobe)    <------
+    |       |-> Session: outfit_suggestion="..."          |
+    |       |                                             i += 1
+    |       |                                   selected_item=search_listings[i]
+    |       |                                             |
+    |       | FAILURE: outfit_suggestion="" ---------------
+    |       |       |                        Items left in search_listings, AND
+    |       |       |                        Iter count below max
+    |       |       |
+    |       |       ----------------------------------------->  Give tips for better result;
+    |       |         No more items in search_listings, OR      RETURN
+    |       |         Iter count hit max
+    │       V
+    |--> create_fit_card(outfit_suggestion, selected_item)
+            │
+        Session: fit_card = "..."
+            │                                             error path returns here
+            v
+        Return session
+```
 
 ---
 
