@@ -66,7 +66,7 @@ def search_listings(
     size: str | None = None,
     max_price: float | None = None,
     _with_score: bool | None = False,
-) -> list[dict]:
+) -> list[dict]:  # ☑️
     """
     Search the mock listings dataset for items matching the description,
     optional size, and optional price ceiling.
@@ -86,12 +86,11 @@ def search_listings(
         id, title, description, category, style_tags (list), size,
         condition, price (float), colors (list), brand, platform
 
-    TODO:
-        1. Load all listings with load_listings().
-        2. Filter by max_price and size (if provided).
-        3. Score each remaining listing by keyword overlap with `description`.
-        4. Drop any listings with a score of 0 (no relevant matches).
-        5. Sort by score, highest first, and return the listing dicts.
+    1. Loads all listings with load_listings().
+    2. Filters by max_price and size (if provided).
+    3. Scores each remaining listing by keyword overlap with `description`.
+    4. Drops any listings with a score of 0 (no relevant matches).
+    5. Sorts by score, highest first, and returns the listing dicts.
 
     Before writing code, fill in the Tool 1 section of planning.md.
     """
@@ -186,7 +185,7 @@ def search_listings(
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
 
 
-def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
+def suggest_outfit(new_item: dict, wardrobe: dict) -> str:  # ☑️
     """
     Given a thrifted item and the user's wardrobe, suggest a complete outfit.
 
@@ -200,14 +199,13 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
         If the wardrobe is empty, offer general styling advice for the item
         rather than raising an exception or returning an empty string.
 
-    TODO:
-        1. Check whether wardrobe['items'] is empty.
-        2. If empty: call the LLM with a prompt for general styling ideas
-           (what kinds of items pair well, what vibe it suits, etc.).
-        3. If not empty: format the wardrobe items into a prompt and ask
-           the LLM to suggest specific outfit combinations using the new item
-           and named pieces from the wardrobe.
-        4. Return the LLM's response as a string.
+    1. Checks whether wardrobe['items'] is empty.
+    2. If empty: calls the LLM with a prompt for general styling ideas
+        (what kinds of items pair well, what vibe it suits, etc.).
+    3. If not empty: formats the wardrobe items into a prompt and asks
+        the LLM to suggest specific outfit combinations using the new item
+        and named pieces from the wardrobe.
+    4. Returns the LLM's response as a string.
     """
     wardrobe_items = wardrobe.get("items")
 
