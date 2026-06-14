@@ -16,6 +16,7 @@ import os
 
 from dotenv import load_dotenv
 from groq import Groq
+from functools import cache
 
 from utils.data_loader import load_listings
 
@@ -25,7 +26,7 @@ load_dotenv()
 # ── Groq client ───────────────────────────────────────────────────────────────
 
 
-# TODO: cache
+@cache
 def _get_groq_client():
     """Initialize and return a Groq client using GROQ_API_KEY from .env."""
     api_key = os.environ.get("GROQ_API_KEY")
