@@ -127,3 +127,6 @@ print(create_fit_card('', results['content'][0]))
 
 - Bonus feature: retry `search_listings` with looser constraints
   - Pathology? looser constraints may lead to worse results - one solution is to have score cutoffs below which to retry with another constraint
+
+- Limitations:
+  - Keyword-based matching `search_listings` = negation not supported ("NOT graphic tee" will return graphic tee")

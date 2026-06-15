@@ -54,6 +54,87 @@ FIT_CARD_SYS_PMT = (
     "very sparingly."
 )
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+STOP_WORDS = {
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "if",
+    "then",
+    "else",
+    "when",
+    "at",
+    "from",
+    "by",
+    "for",
+    "with",
+    "about",
+    "against",
+    "between",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "to",
+    "up",
+    "down",
+    "in",
+    "out",
+    "on",
+    "off",
+    "over",
+    "under",
+    "again",
+    "further",
+    "once",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "having",
+    "do",
+    "does",
+    "did",
+    "doing",
+    "of",
+    "some",
+    "any",
+    "this",
+    "that",
+    "these",
+    "those",
+}
+
+
+def _tokenize(text: str) -> list[str]:
+    # return a list of tokens (preserves duplicates for counting)
+    # remove apostrophes: "Levi's" -> "Levis"
+    normalized = re.sub(r"'", "", text.lower())
+    # punctuation to whitespace: "word - word" -> "word   word"; "word/word" -> "word word"
+    normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
+    return [token for token in normalized.split() if token and token not in STOP_WORDS]
+
+
+def _normalize_size(size_value: str) -> set[str]:
+    cleaned = re.sub(r"[()\[\],]", "", size_value.lower())
+    cleaned = cleaned.replace("/", " ")
+    return set(token.strip() for token in cleaned.split() if token.strip())
+
+
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
 
 
@@ -61,7 +142,6 @@ def search_listings(
     description: str,
     size: str | None = None,
     max_price: float | None = None,
-    _with_score: bool | None = False,
 ) -> dict[str, list[dict] | bool | str]:  # ☑️
     """
     Search the mock listings dataset for items matching the description,
@@ -77,8 +157,16 @@ def search_listings(
         max_price:   Maximum price (inclusive), or None to skip price filtering.
 
     Returns:
-        A list of matching listing dicts, sorted by relevance (best match first).
-        Returns an empty list if nothing matches — does NOT raise an exception.
+         A dict of the form:
+         { "content": str, "success": bool, "message": str }
+
+        `content`: A list of matching listing dicts, sorted by relevance (best
+                   match first). Returns an empty list if nothing matches — does
+                   NOT raise an exception.
+        `info`:    A dictionary containing loosened constraints.
+        `success`: Whether the function succeeded without errors.
+        `message`: An error message if `success` is `False`.
+
 
     Each listing dict has the following fields:
         id, title, description, category, style_tags (list), size,
@@ -101,25 +189,8 @@ def search_listings(
             "message": f"Error: {msg}",
         }
 
-    def _tokenize(text: str) -> set[str]:
-        # remove apostrophes: "Levi's" -> "Levis"
-        normalized = re.sub(r"'", "", text.lower())
-        # punctuation to whitespace: "word - word" -> "word   word"; "word/word" -> "word word"
-        normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
-        return set(token for token in normalized.split() if token)
-
-    def _tokenize_list(text: str) -> list[str]:
-        # return a list of tokens (preserves duplicates for counting)
-        normalized = re.sub(r"'", "", text.lower())
-        normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
-        return [token for token in normalized.split() if token]
-
-    def _normalize_size(size_value: str) -> set[str]:
-        cleaned = re.sub(r"[()\[\],]", "", size_value.lower())
-        cleaned = cleaned.replace("/", " ")
-        return set(token.strip() for token in cleaned.split() if token.strip())
-
-    query_tokens = _tokenize(description)
+    # query tokens should be unique
+    query_tokens = set(_tokenize(description))
 
     # 1. Load all listings with load_listings().
     listings = load_listings()
@@ -135,25 +206,24 @@ def search_listings(
 
         # 3. Score each remaining listing by keyword overlap with `description`.
         # Use token lists (not sets) for listing fields so repeated matches count.
-        tok_listing["title"] = _tokenize_list(listing.get("title") or "")
-        tok_listing["description"] = _tokenize_list(listing.get("description") or "")
-        tok_listing["category"] = _tokenize_list(listing.get("category") or "")
-        tok_listing["brand"] = _tokenize_list(listing.get("brand") or "")
+        tok_listing["title"] = _tokenize(listing.get("title") or "")
+        tok_listing["description"] = _tokenize(listing.get("description") or "")
+        tok_listing["category"] = _tokenize(listing.get("category") or "")
+        tok_listing["brand"] = _tokenize(listing.get("brand") or "")
 
         tok_listing["style_tags"] = []
         for t in listing.get("style_tags") or []:
-            tok_listing["style_tags"].extend(_tokenize_list(str(t)))
+            tok_listing["style_tags"].extend(_tokenize(str(t)))
 
         tok_listing["colors"] = []
         for c in listing.get("colors") or []:
-            tok_listing["colors"].extend(_tokenize_list(str(c)))
+            tok_listing["colors"].extend(_tokenize(str(c)))
 
         tokenized_listings.append((listing, tok_listing))
 
     def _search(
         constrain_by_price: bool, constrain_by_size: bool
     ) -> list[tuple[int, dict]]:
-        print(f"{constrain_by_price=}, {constrain_by_size=}")
         filtered_listings: list[tuple[int, dict]] = []
 
         for listing, tok_listing in tokenized_listings:
@@ -216,11 +286,7 @@ def search_listings(
     filtered_listings.sort(key=lambda item: item[0], reverse=True)
 
     return {
-        "content": (
-            filtered_listings
-            if _with_score
-            else [listing for _, listing in filtered_listings]
-        ),
+        "content": filtered_listings,
         "info": {
             "loosened_constraints": {
                 "price": not (not (max_price and not constrain_by_price)),
@@ -244,9 +310,14 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> dict[str, str | bool]:  # 
                   wardrobe item dicts. May be empty — handle this gracefully.
 
     Returns:
-        A non-empty string with outfit suggestions.
-        If the wardrobe is empty, offer general styling advice for the item
-        rather than raising an exception or returning an empty string.
+        A dict of the form:
+        { "content": str, "success": bool, "message": str }
+
+        `content`: A non-empty string with outfit suggestions. If the wardrobe
+                   is empty, offers general styling advice for the item rather
+                   than raising an exception or returning an empty string.
+        `success`: Whether the function succeeded without errors.
+        `message`: An error message if `success` is `False`.
 
     1. Checks whether wardrobe['items'] is empty.
     2. If empty: calls the LLM with a prompt for general styling ideas
@@ -326,16 +397,21 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> dict[str, str | bool]:  # 
 
 def create_fit_card(outfit: str, new_item: dict) -> dict[str, str | bool]:  # ☑️
     """
-    Generate a short, shareable outfit caption for the thrifted find.
+    Generates a short, shareable outfit caption for the thrifted find.
 
     Args:
-        outfit:   The outfit suggestion string from suggest_outfit().
-        new_item: The listing dict for the thrifted item.
+        `outfit`:   The outfit suggestion string from suggest_outfit().
+        `new_item`: The listing dict for the thrifted item.
 
     Returns:
-        A 2-4 sentence string usable as an Instagram/TikTok caption.
-        If outfit is empty or missing, return a descriptive error message
-        string — do NOT raise an exception.
+        A dict of the form:
+        { "content": str, "success": bool, "message": str }
+
+        `content`: A 2-4 sentence string usable as an Instagram/TikTok caption.
+                   If outfit is empty or missing, return a descriptive error
+                   message string — does NOT raise an exception.
+        `success`: Whether the function succeeded without errors.
+        `message`: An error message if `success` is `False`.
 
     The caption:
     - Feels casual and authentic (like a real OOTD post, not a product
@@ -392,3 +468,121 @@ def create_fit_card(outfit: str, new_item: dict) -> dict[str, str | bool]:  # �
             "success": False,
             "message": "Error: failed to generate caption: " + str(e),
         }
+
+
+# ── Tool 4: compare_price ─────────────────────────────────────────────────────
+
+
+def compare_price(new_item: dict) -> dict[str, str | bool | dict]:
+    """
+    Determines the price quality of the given item based on comparable listings
+    in the database, returning aggregate stats as reasoning.
+
+    Args:
+        new_item: The listing dict for the thrifted item.
+
+    Returns:
+         A dict of the form:
+         { "content": str, "success": bool, "message": str }
+
+        `content`: A dictionary with the price quality and the averages (both
+                   weighted and unweighted) of the rest of the items' prices.
+        `success`: Whether the function succeeded without errors.
+        `message`: An error message if `success` is `False`.
+
+    1. Tokenizes the titles, descriptions, and sizes of `new_item` and all the
+       other items in the database.
+    2. Scores each other item by relevance to `new_item`: token-matching for
+       titles, descriptions, and sizes; set intersection for colors and style
+       tags; exact matching for platforms, brands, conditions, and categories.
+    3. Calculates the unweighted price average.
+    4. Calculates the weighted price average by score percent (score / sum).
+    5. Determines `new_item`'s price quality: "steal" (below 25% of weighted),
+       "fair" (within +-25%), "rip-off" (above 25%)
+    6. Returns the price quality and both averages.
+    """
+    # 1. Tokenize the titles, descriptions, and sizes of new_item and all the
+    #    other items in the database.
+    listings = load_listings()
+    other_items = [item for item in listings if item["id"] != new_item["id"]]
+
+    if not other_items:
+        return {
+            "message": "Error: no other items found",
+            "success": False,
+        }
+
+    new_title_toks = _tokenize(new_item.get("title") or "")
+    new_desc_toks = _tokenize(new_item.get("description") or "")
+    new_size_toks = _normalize_size(new_item.get("size") or "")
+    new_colors = set(new_item.get("colors") or [])
+    new_styles = set(new_item.get("style_tags") or [])
+
+    # 2. Score each other item by relevance to new_item: token-matching for
+    #    titles, descriptions, and sizes; set intersection for colors and style
+    #    tags; exact matching for platforms, brands, conditions, and categories.
+    prices = []
+    scores = []
+
+    for item in other_items:
+        score = 0
+        # Token matching
+        other_title = _tokenize(item.get("title") or "")
+        other_desc = _tokenize(item.get("description") or "")
+        other_size = _normalize_size(item.get("size") or "")
+
+        for t in set(new_title_toks):
+            score += other_title.count(t)
+        for t in set(new_desc_toks):
+            score += other_desc.count(t)
+        score += len(new_size_toks & other_size)
+
+        # Set intersection
+        score += len(new_colors & set(item.get("colors") or []))
+        score += len(new_styles & set(item.get("style_tags") or []))
+
+        # Exact matching
+        if item.get("platform") == new_item.get("platform"):
+            score += 1
+        if item.get("brand") == new_item.get("brand") and new_item.get("brand"):
+            score += 1
+        if item.get("condition") == new_item.get("condition"):
+            score += 1
+        if item.get("category") == new_item.get("category"):
+            score += 1
+
+        if item.get("price") is not None and score > 0:
+            prices.append(item["price"])
+            scores.append(score)
+
+    # 3. Calculate the unweighted price average.
+    avg = sum(prices) / len(prices)
+
+    # 4. Calculate the weighted price average by score percent (score / sum).
+    sum_scores = sum(scores)
+    weighted_avg = (
+        sum(p * s for p, s in zip(prices, scores)) / sum_scores
+        if sum_scores > 0
+        else avg
+    )
+
+    # 5. Determine new_item's price quality: "steal" (below 25% of weighted),
+    #    "fair" (within +-25%), "rip-off" (above 25%)
+    current_price = new_item["price"]
+    if current_price < weighted_avg * 0.75:
+        quality = "steal"
+    elif current_price > weighted_avg * 1.25:
+        quality = "rip-off"
+    else:
+        quality = "fair"
+
+    # 6. Return the price quality and both averages.
+    return {
+        "content": {
+            "price_quality": quality,
+            "weighted_avg": round(weighted_avg, 2),
+            "avg": round(avg, 2),
+            "fraction": current_price / weighted_avg,
+        },
+        "success": True,
+    }

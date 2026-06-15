@@ -76,7 +76,7 @@ In the case of an error or no-result-found return, the agent should alert the us
 
 ---
 
-### Tool 2: suggest_outfit
+### Tool 2: `suggest_outfit`
 
 **What it does:**
 
@@ -140,7 +140,7 @@ If the tool's own conditional mechanism of offering general advice fails due to 
 
 ---
 
-### Tool 3: create_fit_card
+### Tool 3: `create_fit_card`
 
 **What it does:**
 
@@ -197,9 +197,63 @@ Given the previous tool calls succeeded (otherwise, the agent should not reach t
 
 ---
 
-### Additional Tools (if any)
+### Tool 4: `compare_price`
 
-<!-- Copy the block above for any tools beyond the required three -->
+**What it does:**
+
+<!-- Describe what this tool does in 1–2 sentences -->
+
+Determines the price quality of the given item based on comparable listings in the database, returning aggregate stats as reasoning.
+
+**Input parameters:**
+
+- `new_item` (`dict`): The newly thrifted item whose price to compare
+
+<!-- List each parameter, its type, and what it represents -->
+
+`new_item` example:
+
+```
+{
+     "id": "lst_028",
+     "title": "Suede Chelsea Boots — Tan",
+     "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
+     "category": "shoes",
+     "style_tags": ["vintage", "classic", "western", "earth tones"],
+     "size": "US 8.5",
+     "condition": "fair",
+     "price": 44.00,
+     "colors": ["tan", "camel"],
+     "brand": null,
+     "platform": "poshmark"
+}
+```
+
+**What content it returns:**
+
+<!-- Describe the return value -->
+
+Type: `dict[str, bool | float]`
+
+A dictionary of schema:
+
+```py
+{
+     "price_quality": "str - One of 'steal' (low price), 'fair' (similar "
+                      "price), 'rip-off' (high price)",
+     "weighted_avg":  "float - The weighed average of the prices of the other "
+                      "similar items",
+     "avg":           "float - The unweighted average of the prices of all the "
+                      "other similar items",
+     "fraction":      "float - The item's price divided by the weighted average"
+}
+```
+
+**What happens if it fails or returns nothing:**
+
+<!-- What should the agent do if the outfit data is incomplete? -->
+
+The tool itself will never return nothing, but it can fail in the sense that the given item doesn't match with any of the other items in the database, leading to an inconclusive price comparison. The agent will report this in the session, but it will continue the planning loop since price comparison is an extra feature - not an integral part of the app.
 
 ---
 

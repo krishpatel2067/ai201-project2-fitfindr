@@ -18,7 +18,12 @@ Usage (once implemented):
 
 import re
 
-from scripts.tools import search_listings, suggest_outfit, create_fit_card
+from scripts.tools import (
+    search_listings,
+    suggest_outfit,
+    create_fit_card,
+    compare_price,
+)
 from utils.llm import get_groq_client, MODEL as LLM_MODEL
 
 MAX_OUTFIT_RETRIES = 5
@@ -43,11 +48,13 @@ def _new_session(query: str, wardrobe: dict) -> dict:
         "query": query,  # original user query
         "parsed": {},  # extracted description / size / max_price
         "search_results": [],  # list of matching listing dicts
+        "search_results_debug": [],  # list of matching listing dicts with scores
         "loosened_constraints": {},  # any loosened constraints during search
         "selected_item": None,  # top result, passed into suggest_outfit
         "wardrobe": wardrobe,  # user's wardrobe dict
         "outfit_suggestion": None,  # string returned by suggest_outfit
-        "fit_card": None,  # string returned by create_fit_card
+        "fit_card": None,  # string content returned by create_fit_card
+        "price_comparison": {},  # dict content returned by compare_price
         "error": None,  # set if the interaction ended early
     }
 
@@ -281,7 +288,10 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         Step 6: Call create_fit_card() with the outfit suggestion and selected item.
                 Store the result in session["fit_card"].
 
-        Step 7: Return the session.
+        Step 7: Call compare_price() with the selected item.
+                Store the result in session["price_comparison"]
+
+        Step 8: Return the session.
 
     Before writing code, complete the Planning Loop and State Management sections
     of planning.md — your implementation should match what you described there.
@@ -311,7 +321,8 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         )
         return session
 
-    session["search_results"] = search_results["content"]
+    session["search_results"] = [item for _, item in search_results["content"]]
+    session["search_results_debug"] = search_results["content"]
     session["loosened_constraints"] = search_results["info"]["loosened_constraints"]
 
     # 4. Select the item to use (e.g., the top result).
@@ -357,7 +368,14 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             return session
 
     session["fit_card"] = fit_card["content"]
-    # 7. Return the session.
+
+    # 7. Call compare_price() with the selected item.
+    price_comparison = compare_price(session["selected_item"])
+
+    if price_comparison["success"]:
+        session["price_comparison"] = price_comparison["content"]
+
+    # 8. Return the session.
     return session
 
 
