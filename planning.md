@@ -9,8 +9,21 @@
 
 ## Tools
 
-List every tool your agent will use. For each tool, fill in all four fields.
-You must have at least 3 tools. The three required tools are listed — add any additional tools below them.
+<!-- List every tool your agent will use. For each tool, fill in all four fields.
+You must have at least 3 tools. The three required tools are listed — add any additional tools below them. -->
+
+Each tool returns a consistent structured output containing not just the main result but also the success and errors (if any). Tool return value schema:
+
+```py
+{
+     "content": "any | None - If `success` is `True`, the main result from the function",
+     "info": "dict | None - Metadata or other info not directly related to the main result",
+     "success": "bool - Whether the tool executed successfully (without any errors)",
+     "message": "str | None - If `success` is `False`, the error message"
+}
+```
+
+Due to this shared format, each tool description below specifies the _content_ returned upon success, not the actual structured dictionary outlined above. For example, if a tool returns an LLM response as content, then the return type and description for that tool would be `str` and about the LLM response.
 
 ### Tool 1: `search_listings`
 
@@ -18,7 +31,7 @@ You must have at least 3 tools. The three required tools are listed — add any 
 
 <!-- Describe what this tool does in 1–2 sentences -->
 
-Searches through a database to find a list of clothing items that match the description as well as size and price constraints (if any), sorted in ascending order by relevance.
+Searches through a database to find a list of clothing items that match the description as well as size and price constraints (if any), sorted in ascending order by relevance. If no results are found, the search is performed repeatedly with looser constraints: first with price but no size (if provided), second with size but no price (if provided), and finally with no size nor price (if provided). The first retry is returned.
 
 **Input parameters:**
 
@@ -28,7 +41,7 @@ Searches through a database to find a list of clothing items that match the desc
 - `size` (`str` | `None`): The size of the clothing. Valid formats: "S", "S/M", "US 9", "W28", "One Size" with some having paretheses (e.g. "One Size (adjustable)" or "XL (oversized)").
 - `max_price` (`float` | `None`): The user's desired maximum price for the new clothing.
 
-**What it returns:**
+**What content it returns:**
 
 <!-- Describe the return value — what fields does a result contain? -->
 
@@ -109,7 +122,7 @@ Suggests 1-2 complete outfits given the thrifted item (the top from `search_list
 }
 ```
 
-**What it returns:**
+**What content it returns:**
 
 <!-- Describe the return value -->
 
@@ -160,7 +173,7 @@ Generates a short, social-media-shareable outfit caption for the newly thrifted 
 }
 ```
 
-**What it returns:**
+**What content it returns:**
 
 <!-- Describe the return value -->
 

@@ -124,3 +124,6 @@ print(create_fit_card('', results['content'][0]))
 "
 {'success': False, 'message': 'Error: outfit suggestion is empty; cannot generate caption.'}
 ```
+
+- Bonus feature: retry `search_listings` with looser constraints
+  - Pathology? looser constraints may lead to worse results - one solution is to have score cutoffs below which to retry with another constraint

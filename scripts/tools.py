@@ -62,10 +62,12 @@ def search_listings(
     size: str | None = None,
     max_price: float | None = None,
     _with_score: bool | None = False,
-) -> list[dict]:  # ☑️
+) -> dict[str, list[dict] | bool | str]:  # ☑️
     """
     Search the mock listings dataset for items matching the description,
-    optional size, and optional price ceiling.
+    optional size, and optional price ceiling. Multiple retries are performed:
+    no size, no price, no size nor price before finally returning an empty list
+    if no results are found.
 
     Args:
         description: Keywords describing what the user is looking for
@@ -92,9 +94,11 @@ def search_listings(
     """
     description = (description or "").strip()
     if not description:
+        msg = "provide a description against which to find relevant items."
+        print(f"[ERROR] search_listings: {msg}")
         return {
             "success": False,
-            "message": "Error: provide a description against which to find relevant items.",
+            "message": f"Error: {msg}",
         }
 
     def _tokenize(text: str) -> set[str]:
@@ -116,57 +120,94 @@ def search_listings(
         return set(token.strip() for token in cleaned.split() if token.strip())
 
     query_tokens = _tokenize(description)
-    search_size_tokens = _normalize_size(size) if size else None
 
     # 1. Load all listings with load_listings().
     listings = load_listings()
+    # tuples of (original listing, tokenized listing)
+    tokenized_listings: list[tuple[dict, dict]] = []
 
-    filtered_listings: list[tuple[int, dict]] = []
     for listing in listings:
-        listing_size = listing.get("size", "")
-        listing_price = listing.get("price")
-
-        # 2. Filter by max_price and size (if provided).
-        if max_price is not None and listing_price is not None:
-            if listing_price > max_price:
-                continue
-
-        if search_size_tokens is not None:
-            listing_size_tokens = _normalize_size(listing_size)
-            if not (search_size_tokens & listing_size_tokens):
-                continue
+        tok_listing = dict(listing)
+        del tok_listing["condition"]  # search by condition not supported
+        del tok_listing["platform"]  # search by platform not supported
+        tok_listing["size"] = _normalize_size(listing.get("size", ""))
+        tok_listing["price"] = listing.get("price")
 
         # 3. Score each remaining listing by keyword overlap with `description`.
         # Use token lists (not sets) for listing fields so repeated matches count.
-        title_tokens_list = _tokenize_list(listing.get("title") or "")
-        description_tokens_list = _tokenize_list(listing.get("description") or "")
-        category_tokens_list = _tokenize_list(listing.get("category") or "")
-        brand_tokens_list = _tokenize_list(listing.get("brand") or "")
+        tok_listing["title"] = _tokenize_list(listing.get("title") or "")
+        tok_listing["description"] = _tokenize_list(listing.get("description") or "")
+        tok_listing["category"] = _tokenize_list(listing.get("category") or "")
+        tok_listing["brand"] = _tokenize_list(listing.get("brand") or "")
 
-        style_tokens_list: list[str] = []
+        tok_listing["style_tags"] = []
         for t in listing.get("style_tags") or []:
-            style_tokens_list.extend(_tokenize_list(str(t)))
+            tok_listing["style_tags"].extend(_tokenize_list(str(t)))
 
-        color_tokens_list: list[str] = []
+        tok_listing["colors"] = []
         for c in listing.get("colors") or []:
-            color_tokens_list.extend(_tokenize_list(str(c)))
+            tok_listing["colors"].extend(_tokenize_list(str(c)))
 
-        # Count total occurrences of each query token across all fields.
-        score = 0
-        for token in query_tokens:
-            score += title_tokens_list.count(token)
-            score += description_tokens_list.count(token)
-            score += category_tokens_list.count(token)
-            score += brand_tokens_list.count(token)
-            score += sum(t == token for t in style_tokens_list)
-            score += sum(c == token for c in color_tokens_list)
+        tokenized_listings.append((listing, tok_listing))
 
-        # 4. Drop any listings with a score of 0 (no relevant matches).
-        if score == 0:
-            continue
+    def _search(
+        constrain_by_price: bool, constrain_by_size: bool
+    ) -> list[tuple[int, dict]]:
+        print(f"{constrain_by_price=}, {constrain_by_size=}")
+        filtered_listings: list[tuple[int, dict]] = []
 
-        # Preserve score for sorting, then discard before return.
-        filtered_listings.append((score, listing))
+        for listing, tok_listing in tokenized_listings:
+
+            # 2. Filter by max_price and size (if provided).
+            if (
+                constrain_by_price
+                and max_price is not None
+                and tok_listing["price"] is not None
+            ):
+                if tok_listing["price"] > max_price:
+                    continue
+
+            if constrain_by_size:
+                search_size_tokens = _normalize_size(size) if size else None
+                listing_size_tokens = tok_listing["size"]
+                if (
+                    search_size_tokens
+                    and listing_size_tokens
+                    and not (search_size_tokens & listing_size_tokens)
+                ):
+                    continue
+
+            score = 0
+            for token in query_tokens:
+                score += tok_listing["title"].count(token)
+                score += tok_listing["description"].count(token)
+                score += tok_listing["category"].count(token)
+                score += tok_listing["brand"].count(token)
+                score += sum(t == token for t in tok_listing["style_tags"])
+                score += sum(c == token for c in tok_listing["colors"])
+
+            # 4. Drop any listings with a score of 0 (no relevant matches).
+            if score == 0:
+                continue
+
+            # Preserve score for sorting, then discard before return.
+            filtered_listings.append((score, listing))
+        return filtered_listings
+
+    constrain_by_price, constrain_by_size = True, True
+    filtered_listings = _search(constrain_by_price, constrain_by_size)
+
+    if not filtered_listings:
+        constrain_by_price, constrain_by_size = False, True
+        filtered_listings = _search(constrain_by_price, constrain_by_size)
+
+    if not filtered_listings:
+        constrain_by_price, constrain_by_size = True, False
+        filtered_listings = _search(constrain_by_price, constrain_by_size)
+
+    if not filtered_listings:
+        constrain_by_price, constrain_by_size = False, False
+        filtered_listings = _search(constrain_by_price, constrain_by_size)
 
     # 5. Sort by score, highest first, and return the listing dicts.
     # sort by id (secondary key) in ascending order
@@ -180,6 +221,12 @@ def search_listings(
             if _with_score
             else [listing for _, listing in filtered_listings]
         ),
+        "info": {
+            "loosened_constraints": {
+                "price": not (not (max_price and not constrain_by_price)),
+                "size": not (not (size and not constrain_by_size)),
+            }
+        },
         "success": True,
     }
 
@@ -187,7 +234,7 @@ def search_listings(
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
 
 
-def suggest_outfit(new_item: dict, wardrobe: dict) -> str:  # ☑️
+def suggest_outfit(new_item: dict, wardrobe: dict) -> dict[str, str | bool]:  # ☑️
     """
     Given a thrifted item and the user's wardrobe, suggest a complete outfit.
 
@@ -277,7 +324,7 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:  # ☑️
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
 
 
-def create_fit_card(outfit: str, new_item: dict) -> str:  # ☑️
+def create_fit_card(outfit: str, new_item: dict) -> dict[str, str | bool]:  # ☑️
     """
     Generate a short, shareable outfit caption for the thrifted find.
 
@@ -308,9 +355,11 @@ def create_fit_card(outfit: str, new_item: dict) -> str:  # ☑️
     # 1. Guard against an empty or whitespace-only outfit string.
     outfit = outfit.strip()
     if not outfit:
+        msg = "outfit suggestion is empty; cannot generate caption."
+        print(f"[ERROR] create_fit_card: {msg}")
         return {
             "success": False,
-            "message": "Error: outfit suggestion is empty; cannot generate caption.",
+            "message": f"Error: {msg}",
         }
 
     # 2. Build a prompt that gives the LLM the item details and the outfit,

@@ -19,7 +19,7 @@ from utils.format import format_listing_item
 # ── query handler ─────────────────────────────────────────────────────────────
 
 
-def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
+def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:  # ☑️
     """
     Called by Gradio when the user submits a query.
 
@@ -32,15 +32,14 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
             (listing_text, outfit_suggestion, fit_card)
         Each string maps to one of the three output panels in the UI.
 
-    TODO:
-        1. Guard against an empty query (return early with an error message).
-        2. Select the wardrobe based on wardrobe_choice.
-        3. Call run_agent() with the query and selected wardrobe.
-        4. If session["error"] is set, return the error in the first panel
-           and empty strings for the other two.
-        5. Otherwise, format session["selected_item"] into a readable listing_text
-           string and return it along with session["outfit_suggestion"] and
-           session["fit_card"].
+    1. Guards against an empty query (returning early with an error message).
+    2. Selects the wardrobe based on wardrobe_choice.
+    3. Calls run_agent() with the query and selected wardrobe.
+    4. If session["error"] is set, returns the error in the first panel
+        and empty strings for the other two.
+    5. Otherwise, formats session["selected_item"] into a readable listing_text
+        string and returns it along with session["outfit_suggestion"] and
+        session["fit_card"].
     """
     # 1. Guard against an empty query (return early with an error message).
     if not user_query:
@@ -64,8 +63,19 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
     # 5. Otherwise, format session["selected_item"] into a readable listing_text
     #    string and return it along with session["outfit_suggestion"] and
     #    session["fit_card"].
+    loose_price = session["loosened_constraints"]["price"]
+    loose_size = session["loosened_constraints"]["size"]
+    loose_both = loose_price and loose_size
+    both = "price and size" if loose_both else ""
+    one = "price" if loose_price else "size"
+    loose_msg = (
+        f"We loosened the {both or one} constraint{"s" if loose_both else ""} to help with the search.\n\n"
+        if loose_price or loose_size
+        else ""
+    )
+
     return (
-        format_listing_item(session["selected_item"]),
+        loose_msg + format_listing_item(session["selected_item"]),
         session["outfit_suggestion"],
         session["fit_card"],
     )

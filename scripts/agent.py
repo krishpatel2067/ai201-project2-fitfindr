@@ -43,6 +43,7 @@ def _new_session(query: str, wardrobe: dict) -> dict:
         "query": query,  # original user query
         "parsed": {},  # extracted description / size / max_price
         "search_results": [],  # list of matching listing dicts
+        "loosened_constraints": {},  # any loosened constraints during search
         "selected_item": None,  # top result, passed into suggest_outfit
         "wardrobe": wardrobe,  # user's wardrobe dict
         "outfit_suggestion": None,  # string returned by suggest_outfit
@@ -311,6 +312,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         return session
 
     session["search_results"] = search_results["content"]
+    session["loosened_constraints"] = search_results["info"]["loosened_constraints"]
 
     # 4. Select the item to use (e.g., the top result).
     i = 0
