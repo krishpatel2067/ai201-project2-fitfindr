@@ -247,12 +247,12 @@ General state management (some steps hidden for concision):
 
 Each failure mode is first acknowledged to the user, then the items from `Agent Response` apply.
 
-| Tool              | Failure Mode                          | Agent Response                                                                                |
-| ----------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `search_listings` | No results match the query            | Give user tips for a better match next time                                                   |
-| `suggest_outfit`  | Wardrobe is empty                     | Nudge user to add items to wardrobe; temporarily resort to example wardrobe                   |
-| `suggest_outfit`  | Outfit input is missing or incomplete | Retry once; go to next relevant item; repeat; if all fails, give user tips for better outcome |
-| `create_fit_card` | Caption returned is empty             | Retry once; if it fails, reveal to user some relevant items and outfit suggestion             |
+| Tool              | Failure Mode                    | Agent Response                                                                                |
+| ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+| `search_listings` | No results match the query      | Auto-retry with looser constraints [TODO]; give user tips for a better match next time        |
+| `suggest_outfit`  | Wardrobe is empty               | Give general styling advice                                                                   |
+| `suggest_outfit`  | Outfit is missing or incomplete | Retry once; go to next relevant item; repeat; if all fails, give user tips for better outcome |
+| `create_fit_card` | Caption returned is empty       | Retry once; if it fails, reveal to user some relevant items and outfit suggestion             |
 
 ---
 
