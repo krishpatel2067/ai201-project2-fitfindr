@@ -1,10 +1,5 @@
 # FitFindr — planning.md
 
-> Complete this document before writing any implementation code.
-> Your spec and agent diagram are what you'll use to direct AI tools (Claude, Copilot, etc.) to generate your implementation — the more specific they are, the more useful the generated code will be.
-> Your planning.md will be reviewed as part of your submission.
-> Update it before starting any stretch features.
-
 ---
 
 ## Tools
@@ -265,23 +260,18 @@ The tool itself will never return nothing, but it can fail in the sense that the
 
 The general order should be the following (the numbered steps are the happy path, and the bulleted / lettered steps are the exit conditions upon failure modes):
 
-1. Check the user's query for adequacy: the required clothing description and relevance to the app's goal.
-   - Do not make any tool calls for inadequate queries. Only generate the final response, depending on the case below.
-   - If the user's query is vague, ask for clarification, especially asking for a description and optionally size and maximum price.
-   - If the user's query is irrelevant, state that and your domain of expertise.
-2. Call `search_listings` with the extracted clothing description, size (if any), and maximum price (if any).
-   - If the returned list is empty, mention to the user that no matching items could be found in the database. Additionally, offer tips for a successful match next time, e.g. correct spelling, different size and/or price, etc.
+1. Parse the natural-language query to extract the description, size (if any), and max price (if any). Use a low-temperature LLM call first, then fall back to direct regex if response is malformatted.
+2. Call `search_listings` with the extracted clothing description, size (if any), and max price (if any).
+   - If the returned list is empty, mention to the user that no matching items could be found in the database. Additionally, offer tips for a successful match next time, e.g. correct spelling and clearly marked size and price.
 3. Call `suggest_outfit` with the chosen clothing item and the user's wardrobe. Initially, this chosen clothing item is the first one in the list returned from `search_listings`.
    a. If suggestion returned is an empty string, retry once by making the same tool call to `suggest_outfit` again.
    b. If that result is also empty, choose the next clothing item in the list returned from `search_listings`.
    c. Go to Step 3. The newly thrifted item is the first one whose outfit suggestion is non-empty. Repeat until the specified max fallback item count is reached or all the list items run out, whichever is first.
-   d. Mention that you can't make an outfit suggestion. Suggest to the user ways to improve the outcome next time: adding items to their wardrobe, tweaking their original description, etc.
+   d. Return a helpful error message that a suggestion cannot be made.
 4. Call `create_fit_card` with the suggested outfit and newly thrifted item.
    a. If the returned caption is empty, retry once with the same exact call.
-   b. If that fails, mention that you were unable to generate a social media outfit caption. In addition, reveal the newly thrifted item information and outfit suggestion to them.
+   b. If that fails, return a helpful error message stating that the outfit caption was unable to be generated.
 5. Output the final caption to the user.
-
-However, the system prompt shouldn't include all these details to leave the agent with some flexibility to reason.
 
 ---
 
@@ -291,20 +281,24 @@ However, the system prompt shouldn't include all these details to leave the agen
 
 <!-- Describe how your agent stores and accesses state within a session. What data is tracked? How is it passed between tool calls? -->
 
-| Variable            | Initial Value | Description                                                                 |
-| ------------------- | ------------- | --------------------------------------------------------------------------- |
-| `relevant_listings` | `[]`          | Stores the list of items returned by `search_listings`                      |
-| `selected_item`     | `{}`          | Set to `relevant_listings[i]`, starting with `i=0` (the most relevant item) |
-| `outfit_suggestion` | `""`          | Set to the return value of `suggest_outfit`                                 |
-| `fit_card`          | `""`          | Final social media caption returned by `create_fit_card`                    |
+A session dictionary will be used to enforce a single source of truth. The prominent keys are:
+
+| Session Key         | Initial Value | Description                                                              |
+| ------------------- | ------------- | ------------------------------------------------------------------------ |
+| `search_results`    | `[]`          | Stores the list of items returned by `search_listings`                   |
+| `selected_item`     | `{}`          | Set to `search_results[i]`, starting with `i=0` (the most relevant item) |
+| `outfit_suggestion` | `""`          | Set to the return value of `suggest_outfit`                              |
+| `fit_card`          | `""`          | Final social media caption returned by `create_fit_card`                 |
+| `price_comparison`  | `{}`          | Price comparison details returned by `compare_price`                     |
 
 General state management (some steps hidden for concision):
 
-1. Call `search_listings`. Store return value in `relevant_listings`.
+1. Call `search_listings`. Store return value in `search_results`.
 2. While `outfit_suggestion` is empty and iteration count is below a certain max:
-   a. Set `selected_item` to `relevant_listings[i]` (`i` starting at `0`).
+   a. Set `selected_item` to `search_results[i]` (`i` starting at `0`).
    b. Call `suggest_outfit` with `selected_item` a param. Store return value in `outfit_suggestion`.
 3. Call `create_fit_card` with `selected_item` and `outfit_suggestion` as params. Store return value in `fit_card`.
+4. Call `compare_price` with `selected_item`. Store return value in `price_comaparison`.
 
 ---
 
@@ -312,14 +306,15 @@ General state management (some steps hidden for concision):
 
 <!-- For each tool, describe the specific failure mode you're handling and what the agent does in response. -->
 
-Each failure mode is first acknowledged to the user, then the items from `Agent Response` apply.
+The agent responses should be graceful - the tools won't throw exceptions. Rather, they will return an error message (if any) with the main result.
 
-| Tool              | Failure Mode                    | Agent Response                                                                                |
-| ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
-| `search_listings` | No results match the query      | Auto-retry with looser constraints [TODO]; give user tips for a better match next time        |
-| `suggest_outfit`  | Wardrobe is empty               | Give general styling advice                                                                   |
-| `suggest_outfit`  | Outfit is missing or incomplete | Retry once; go to next relevant item; repeat; if all fails, give user tips for better outcome |
-| `create_fit_card` | Caption returned is empty       | Retry once; if it fails, reveal to user some relevant items and outfit suggestion             |
+| Tool              | Failure Mode                    | Agent Response                                                                           |
+| ----------------- | ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `search_listings` | No results match the query      | Auto-retry with looser constraints; give user tips for a better match next time          |
+| `suggest_outfit`  | Wardrobe is empty               | Give general styling advice                                                              |
+| `suggest_outfit`  | Outfit is missing or incomplete | Retry once; go to next relevant item; repeat; if all fails, return helpful error message |
+| `create_fit_card` | Caption returned is empty       | Retry once; return helpful error message                                                 |
+| `compare_price`   | No comparable items             | Return helpful error message                                                             |
 
 ---
 
@@ -342,38 +337,50 @@ Planning Loop
     |
     |--> search_listings(description, size, max_price)
     │       │  FAILURE: search_results=[]
-    │       |------------------------------> RETURN
-    │       │                                (Give user tips for better result)
-    │       v
-    │   Session: selected_item=search_results[0];
+    │       |---> Remove price --|--> Remove size --|--> Remove both ----|
+    |       |     constraint     |    constraint    |     constraints    |
+    │       │                    |                  |                    |
+    |       |            SUCCESS |          SUCCESS |            SUCCESS |
+    |       |---------<----------|--------<---------|---------<----------|
+    |       |                                                            |
+    |       |                                             RETURN <-------| FAIL
+    │       v                                             (Give user tips
+    │   Session: selected_item=search_results[0];         for better result)
     |       |    search_results=[item0, item1, ...]
     │       │
     |--> suggest_outfit(selected_item, wardrobe) <--------|
     |       |                                             |
-    |       |                                  i += 1;
-    |   Session: outfit_suggestion="..."       selected_item=search_results[i]
-    |       |  FAILURE: outfit_suggestion=""              |
+    |       |                                    i += 1;
+    |   Session: outfit_suggestion="..."         selected_item=search_results[i]
+    |       |  FAILURE                                    |
     |       |                                 FAIL        |
     |       |---> Retry once -----------------------------|
-    |       |     | |                        Items left in search_results, AND
-    |       |     | |  FAIL                  Iter count below max
+    |       |     | |                          Items left in search_results, AND
+    |       |     | |  FAIL                    Iter count below max
     |       |     | |
     |       |     | |  Depleted search_results, OR
     |       |     | |  Iter count hit max
-    |       |     | |---------------------------> RETURN
-    |       |-----|                               (Give tips for better result)
+    |       |     | |----------------------------> RETURN helpful error message
+    |       |-----|
     |       |  SUCCESS
     │       |
     |--> create_fit_card(outfit_suggestion, selected_item)
-            │
-        Session: fit_card="..."
-            |  FAILURE: fit_card=""
-            │--> Retry once -------------------> RETURN
-            |       |                FAIL        (Reveal some search_listings;)
-            |-------|                            (Show outfit suggestion;)
+    |       │
+    |   Session: fit_card="..."
+    |       |  FAILURE
+    |       │--> Retry once ---------------------> RETURN helpful error message
+    |       |       |                FAIL
+    |       |-------|
+    |       |  SUCCESS
+    |       |
+    |--> compare_price(selected_item)
+            |  FAILURE
+            |------------------------------------> RETURN helpful error message
+            |       |                FAIL
+            |-------|
             |  SUCCESS
             v
-        RETURN fit_card
+        RETURN session
 ```
 
 ---
@@ -393,11 +400,11 @@ Planning Loop
 
 **Milestone 3 — Individual tool implementations:**
 
-I plan to use Claude Code for this milestone. I'll give it the "Tools" section of `planning.md`, which spells out the implementation details of each tool and will help the AI to generate the code I intend. When I prompt the AI one-by-one, I expect it to produce the implementations of each tool in separate phases, allowing me to test and bebug each one before starting a new one. I'll verify that the output matches my spec by performing line-by-line review of the code, asking the AI any questions about the code if I have any. Then, I'll test each tool to see that it works as intended, reprompting the AI if necessary.
+I plan to use GitHub Copilot and Gemini Code Assist for this milestone. I'll give it the "Tools" section of `planning.md`, which spells out the implementation details of each tool and will help the AI to generate the code I intend. When I prompt the AI one-by-one, I expect it to produce the implementations of each tool in separate phases, allowing me to test and bebug each one before starting a new one. I'll verify that the output matches my spec by performing line-by-line review of the code, asking the AI any questions about the code if I have any. Then, I'll test each tool to see that it works as intended, reprompting the AI if necessary.
 
 **Milestone 4 — Planning loop and state management:**
 
-I'll again use Claude Code for this milestone. But this time, I'll give it the "State Management", "Error Handling", and "Architecture" sections of `planning.md`, which will help the AI properly understand my expectations and generate the planning loop with proper state management. I expect it to produce code that contains a robust agentic planning loop using Groq's tool API as well as the appropriately variables to manage state. To verify the AI's output, I will scan the code generated line-by-line to pick out any glaring deviations, then test the whole system multiple times for a final sanity check. I will reprompt the AI if any adjustments are necessary.
+I'll again use GitHub Copilot and Gemini Code Assist for this milestone. But this time, I'll give it the "State Management", "Error Handling", and "Architecture" sections of `planning.md`, which will help the AI properly understand my expectations and generate the planning loop with proper state management. I expect it to produce code that contains a robust agentic planning loop using Groq's tool API as well as the appropriately variables to manage state. To verify the AI's output, I will scan the code generated line-by-line to pick out any glaring deviations, then test the whole system multiple times for a final sanity check. I will reprompt the AI if any adjustments are necessary.
 
 ---
 
@@ -492,8 +499,34 @@ Example:
 thrifted this faded band tee off depop for $22 and honestly it was made for my wide-legs 🖤 full look in my stories
 ```
 
+**Step 4**:
+
+```py
+compare_price(
+     new_item=<top result>,
+)
+```
+
+- `<top result>` comes from `search_listings` in Step 1
+
+Result:
+
+```
+<short price comparison result>
+```
+
+Example:
+
+```
+{
+     "price_quality": "fair",
+     "weighted_avg": 0.0,
+     "avg": 0.0
+}
+```
+
 **Final output to user:**
 
 <!-- What does the user actually see at the end? -->
 
-The user sees the final TikTok/Instagram-friendly caption describing the newly acquired item and how it fits into their current wardrobe and outfit.
+The user sees the final TikTok/Instagram-friendly caption and price comparison result.

@@ -316,8 +316,8 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         session["error"] = (
             "⛔ Search results returned empty! Perhaps we don't have that item "
             "in our database.\n\n💡 Pro tip: provide a short description of the "
-            'clothing you want, and clearly mark your size (e.g. with "size") and '
-            ' price (e.g. with "$", "bucks", etc.)!'
+            "clothing you want, check your spelling, and clearly mark your size "
+            '(e.g. with "size") and price (e.g. with "$", "bucks", etc.)!'
         )
         return session
 
