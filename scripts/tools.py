@@ -12,17 +12,11 @@ Tools:
     create_fit_card(outfit, new_item)               → str
 """
 
-import os
 import re
 import random
 
-from dotenv import load_dotenv
-from groq import Groq
-from functools import cache
-
 from utils.data_loader import load_listings
-
-load_dotenv()
+from utils.llm import get_groq_client, MODEL as LLM_MODEL
 
 # ── System prompts ────────────────────────────────────────────────────────────
 NON_EMPTY_WARDROBE_OUTFIT_SYS_PMT = (
@@ -58,20 +52,6 @@ FIT_CARD_SYS_PMT = (
     "lowercase, caps, etc. for an even more casual style. Use regular emojis "
     "very sparingly."
 )
-
-# ── Groq client ───────────────────────────────────────────────────────────────
-
-
-@cache
-def _get_groq_client():
-    """Initialize and return a Groq client using GROQ_API_KEY from .env."""
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "GROQ_API_KEY not set. Add it to a .env file in the project root."
-        )
-    return Groq(api_key=api_key)
-
 
 # ── Shared helper functions ───────────────────────────────────────────────────
 
@@ -290,9 +270,9 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:  # ☑️
 
     # Call Groq chat completions API and return the model text response directly
     try:
-        client = _get_groq_client()
+        client = get_groq_client()
         result = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=LLM_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -362,9 +342,9 @@ def create_fit_card(outfit: str, new_item: dict) -> str:  # ☑️
 
     # 3. Call the LLM and return the response.
     try:
-        client = _get_groq_client()
+        client = get_groq_client()
         result = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=LLM_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

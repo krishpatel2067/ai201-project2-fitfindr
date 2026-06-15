@@ -274,24 +274,24 @@ User query
 Planning Loop
     |
     |--> search_listings(description, size, max_price)
-    │       │  FAILURE: search_listings=[]
+    │       │  FAILURE: search_results=[]
     │       |------------------------------> RETURN
     │       │                                (Give user tips for better result)
     │       v
-    │   Session: selected_item=search_listings[0];
-    |       |    search_listings=[item0, item1, ...]
+    │   Session: selected_item=search_results[0];
+    |       |    search_results=[item0, item1, ...]
     │       │
     |--> suggest_outfit(selected_item, wardrobe) <--------|
     |       |                                             |
     |       |                                  i += 1;
-    |   Session: outfit_suggestion="..."       selected_item=search_listings[i]
+    |   Session: outfit_suggestion="..."       selected_item=search_results[i]
     |       |  FAILURE: outfit_suggestion=""              |
     |       |                                 FAIL        |
     |       |---> Retry once -----------------------------|
-    |       |     | |                        Items left in search_listings, AND
+    |       |     | |                        Items left in search_results, AND
     |       |     | |  FAIL                  Iter count below max
     |       |     | |
-    |       |     | |  Depleted search_listings, OR
+    |       |     | |  Depleted search_results, OR
     |       |     | |  Iter count hit max
     |       |     | |---------------------------> RETURN
     |       |-----|                               (Give tips for better result)
