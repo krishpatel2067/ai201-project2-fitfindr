@@ -79,7 +79,7 @@ def _parse_llm_response(response: str) -> tuple[str, str | None, float | None]:
     desc_match = re.search(
         desc_pattern,
         lines[0] if lines else "",
-        flags=re.I | re.M,
+        flags=re.I,
     ) or re.search(
         desc_pattern,
         response,
@@ -88,29 +88,43 @@ def _parse_llm_response(response: str) -> tuple[str, str | None, float | None]:
     if desc_match:
         description = desc_match.group("description").strip()
 
-    price_match = re.search(
-        price_pattern,
-        lines[1] if len(lines) > 1 else "",
-        flags=re.I | re.M,
-    ) or re.search(
-        price_pattern,
-        response,
-        flags=re.I | re.M,
+    no_price_match = re.search(
+        r"no(?:ne)?", lines[1] if len(lines) > 1 else "", flags=re.I
     )
-    if price_match:
-        max_price = float(price_match.group("max_price"))
 
-    size_match = re.search(
-        size_pattern,
-        lines[2] if len(lines) > 2 else "",
-        flags=re.I | re.M,
-    ) or re.search(
-        size_pattern,
-        response,
-        flags=re.I | re.M,
+    if not no_price_match:
+        price_match = re.search(
+            price_pattern,
+            lines[1] if len(lines) > 1 else "",
+            flags=re.I,
+        ) or re.search(
+            price_pattern,
+            response,
+            flags=re.I | re.M,
+        )
+        if price_match:
+            max_price = float(price_match.group("max_price"))
+
+    no_size_match = re.search(
+        r"no(?:ne)?", lines[2] if len(lines) > 2 else "", flags=re.I
     )
-    if size_match:
-        size = _normalize_size_token(size_match.group("size").strip())
+
+    if not no_size_match:
+        size_match = (
+            re.search(r"no(?:ne)", lines[2], flags=re.I)
+            or re.search(
+                size_pattern,
+                lines[2] if len(lines) > 2 else "",
+                flags=re.I,
+            )
+            or re.search(
+                size_pattern,
+                response,
+                flags=re.I | re.M,
+            )
+        )
+        if size_match:
+            size = _normalize_size_token(size_match.group("size").strip())
 
     return description, size, max_price
 
@@ -208,19 +222,15 @@ def _parse_query(query: str) -> dict:
     except Exception:
         llm_output = ""
 
-    print(llm_output)
     description, size, max_price = _parse_llm_response(llm_output)
 
     if not description:
-        print("fallback desc")
         description = _fallback_description(query)
 
     if size is None:
-        print("fallback SIZE")
         size = _extract_size_from_query(query)
 
     if max_price is None:
-        print("fallback price")
         max_price = _extract_price_from_query(query)
 
     parsed["description"] = description.strip()
@@ -289,6 +299,9 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     )
 
     if not search_results["success"]:
+        session["error"] = "Error: unable to search items"
+        return session
+    if not search_results["content"]:
         session["error"] = "Error: empty search results"
         return session
 
