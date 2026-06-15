@@ -69,3 +69,25 @@ Your implementation files go in this same directory. There's no required file st
   - Had to manually write `normalized = re.sub(r"'", "", text.lower())` in `_tokenize`.
   - Initial scoring in `search_listings` didn't take into account repetition in each field and across fields.
   - Generated an overly cautious implemention of `suggest_outfit`: Lots of `isinstance` checks instead of simply `result.choices[0].message.content`
+
+- LLM-based query parsing:
+
+Flexibility:
+
+```
+vintage graphic tee of size small under 50 bucks
+vintage graphic tee
+50
+S
+{'description': 'vintage graphic tee', 'size': 'S', 'max_price': 50.0}
+```
+
+Hallucinated price:
+
+```
+vintage graphic tee size small
+vintage graphic tee
+20
+S
+{'description': 'vintage graphic tee', 'size': 'S', 'max_price': 20.0}
+```

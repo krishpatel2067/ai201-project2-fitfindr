@@ -17,6 +17,7 @@ import random
 
 from utils.data_loader import load_listings
 from utils.llm import get_groq_client, MODEL as LLM_MODEL
+from utils.format import format_listing_item
 
 # ── System prompts ────────────────────────────────────────────────────────────
 NON_EMPTY_WARDROBE_OUTFIT_SYS_PMT = (
@@ -52,23 +53,6 @@ FIT_CARD_SYS_PMT = (
     "lowercase, caps, etc. for an even more casual style. Use regular emojis "
     "very sparingly."
 )
-
-# ── Shared helper functions ───────────────────────────────────────────────────
-
-
-def _format_new_item(new_item: dict) -> str:
-    return "\n".join(
-        [
-            f"Item: {new_item.get('title') or "UNKNOWN"}",
-            f"Category: {new_item.get('category') or "UNKNOWN"}",
-            f"Colors: {', '.join(new_item.get('colors') or []) or "UNKNOWN"}",
-            f"Style tags: {', '.join(new_item.get('style_tags') or []) or "NONE"}",
-            f"Price: {"$" + str(new_item.get('price')) if new_item.get('price') is not None else 'UNKNOWN'}",
-            f"Platform: {new_item.get('platform') or "UNKNOWN"}",
-            f"Description: {new_item.get('description') or "NONE"}",
-        ]
-    )
-
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
 
@@ -228,7 +212,7 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:  # ☑️
     wardrobe_items = wardrobe.get("items")
 
     # Helper to format an item succinctly for the LLM prompt
-    def _format_item_for_prompt(item: dict) -> str:
+    def _format_wardrobe_item(item: dict) -> str:
         parts = []
         name = item.get("name") or "UNKNOWN"
         parts.append(f"{name}")
@@ -246,7 +230,7 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:  # ☑️
             parts.append(f"Notes: {notes}")
         return "\n".join(parts)
 
-    new_item_block = _format_new_item(new_item)
+    new_item_block = format_listing_item(new_item)
 
     # 1. Check whether wardrobe['items'] is empty.
     if not wardrobe_items:
@@ -259,7 +243,7 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:  # ☑️
         #    and named pieces from the wardrobe.
         system_prompt = NON_EMPTY_WARDROBE_OUTFIT_SYS_PMT
         picks = random.sample(wardrobe_items, k=min(10, len(wardrobe_items)))
-        formatted = [_format_item_for_prompt(it) for it in picks]
+        formatted = [_format_wardrobe_item(it) for it in picks]
         wardrobe_block = "\n\n".join(formatted)
         user_prompt = (
             "NEWLY THRIFTED CLOTHING ITEM:\n\n"
@@ -331,7 +315,7 @@ def create_fit_card(outfit: str, new_item: dict) -> str:  # ☑️
 
     # 2. Build a prompt that gives the LLM the item details and the outfit,
     #    and asks for a caption matching the style guidelines above.
-    new_item_block = _format_new_item(new_item)
+    new_item_block = format_listing_item(new_item)
     system_prompt = FIT_CARD_SYS_PMT
     user_prompt = (
         f"NEWLY THRIFTED CLOTHING ITEM:\n\n"
