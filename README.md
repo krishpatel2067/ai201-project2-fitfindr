@@ -91,3 +91,36 @@ vintage graphic tee
 S
 {'description': 'vintage graphic tee', 'size': 'S', 'max_price': 20.0}
 ```
+
+- Testing failure modes:
+
+Empty search results:
+
+```
+python -c "from scripts.tools import search_listings; print(search_listings(
+'designer ballgown', size='XXS', max_price=5))"
+{'content': [], 'success': True}
+```
+
+Empty wardrobe:
+
+```
+python -c "
+from scripts.tools import search_listings, suggest_outfit
+from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
+results = search_listings('vintage graphic tee', size=None, max_price=50)
+print(suggest_outfit(results['content'][0], get_empty_wardrobe()))
+"
+{'content': "This awesome graphic tee is begging to be paired with some high-waisted mom jeans and chunky sneakers for a rad 90s-inspired look that's equal parts grunge and streetwear chic. Throw on a flannel shirt tied around the waist to really drive the vintage vibe home and add an extra layer of cool to this already-amazing tee.", 'success': True}
+```
+
+Empty outfit:
+
+```
+python -c "
+from scripts.tools import search_listings, create_fit_card
+results = search_listings('vintage graphic tee', size=None, max_price=50)
+print(create_fit_card('', results['content'][0]))
+"
+{'success': False, 'message': 'Error: outfit suggestion is empty; cannot generate caption.'}
+```
