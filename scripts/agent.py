@@ -302,7 +302,12 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         session["error"] = "Error: unable to search items"
         return session
     if not search_results["content"]:
-        session["error"] = "Error: empty search results"
+        session["error"] = (
+            "⛔ Search results returned empty! Perhaps we don't have that item "
+            "in our database.\n\n💡 Pro tip: provide a short description of the "
+            'clothing you want, and clearly mark your size (e.g. with "size") and '
+            ' price (e.g. with "$", "bucks", etc.)!'
+        )
         return session
 
     session["search_results"] = search_results["content"]
