@@ -1,5 +1,11 @@
 # FitFindr
 
+_Krish A. Patel_
+
+_CodePath AI201: Applications of AI Engineering Project 2 (Summer 2026)_
+
+---
+
 It's not easy to find new clothes of the right size, price, and aesthetics - let alone know how to incorporate them with your existing clothes. Meet FitFindr, the one-stop-shop for finding the right clothes to thrift as well as getting AI-powered outfit suggestions and expressive fit cards (captions) worthy of posting on social media!
 
 ---
