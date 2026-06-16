@@ -1,7 +1,7 @@
 def format_listing_item(new_item: dict, include_id=False) -> str:
     return "\n".join(
-        [
-            (f"Id: {new_item.get("id") or "NO ID"}" if include_id else ""),
+        ([f"Id: {new_item.get("id") or "NO ID"}"] if include_id else [])
+        + [
             f"Item: {new_item.get('title') or "UNKNOWN"}",
             f"Description: {new_item.get('description') or "NONE"}",
             f"Category: {new_item.get('category') or "UNKNOWN"}",
