@@ -34,7 +34,7 @@ def test_search_price_filter():
     results = search_listings("jacket", size=None, max_price=40)
     assert results["success"] == True  # no errors
     # all items at most $40
-    assert all(item["price"] <= 40 for item in results["content"])
+    assert all(item["price"] <= 40 for _, item in results["content"])
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
