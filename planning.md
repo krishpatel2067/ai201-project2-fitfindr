@@ -11,14 +11,14 @@ Each tool returns a consistent structured output containing not just the main re
 
 ```py
 {
-     "content": "any | None - If `success` is `True`, the main result from the function",
-     "info": "dict | None - Metadata or other info not directly related to the main result",
-     "success": "bool - Whether the tool executed successfully (without any errors)",
+     "content": "any | None - If `success` is `True`, the main tool result",
+     "info": "dict | None - Metadata or other info related to the content",
+     "success": "bool - Whether the tool executed without any errors",
      "message": "str | None - If `success` is `False`, the error message"
 }
 ```
 
-Due to this shared format, each tool description below specifies the _content_ returned upon success, not the actual structured dictionary outlined above. For example, if a tool returns an LLM response as content, then the return type and description for that tool would be `str` and about the LLM response.
+Due to this shared format, each tool description below specifies the _content_ (and sometimes _info_) returned upon success, not the actual structured dictionary outlined above. For example, if a tool returns an LLM response as content, then the return type and description for that tool would be `str` and about the LLM response.
 
 ### Tool 1: `search_listings`
 
@@ -26,15 +26,22 @@ Due to this shared format, each tool description below specifies the _content_ r
 
 <!-- Describe what this tool does in 1–2 sentences -->
 
-Searches through a database to find a list of clothing items that match the description as well as size and price constraints (if any), sorted in ascending order by relevance. If no results are found, the search is performed repeatedly with looser constraints: first with price but no size (if provided), second with size but no price (if provided), and finally with no size nor price (if provided). The first retry is returned.
+Searches through the listings database to find a list of clothing items that match the description as well as size and price constraints (if any), sorted in ascending order by relevance. The search is performed in this order, repeating with looser constraints if results are empty:
+
+1. Keep price and size constraints
+2. Drop price constraint, keep size constraint
+3. Keep price constraint, drop size constraint
+4. Drop price and size constraints
+
+The search stops as soon as at least one result is retrieved or the four steps above are completed, whichever is sooner.
 
 **Input parameters:**
 
 <!-- List each parameter, its type, and what it represents -->
 
 - `description` (`str`): Short descriptive phrase extracted from the user query to match against.
-- `size` (`str` | `None`): The size of the clothing. Valid formats: "S", "S/M", "US 9", "W28", "One Size" with some having paretheses (e.g. "One Size (adjustable)" or "XL (oversized)").
-- `max_price` (`float` | `None`): The user's desired maximum price for the new clothing.
+- `size` (`str` | `None`): Desired size of clothing, matching the format in the listing dataset.
+- `max_price` (`float` | `None`): desired maximum price for the new clothing.
 
 **What content it returns:**
 
@@ -42,7 +49,7 @@ Searches through a database to find a list of clothing items that match the desc
 
 Type: `list[dict]`
 
-Each `dict` contains:
+Each `dict` is a listing item, containing:
 
 ```py
 {
@@ -58,6 +65,21 @@ Each `dict` contains:
      "colors": list[str],     # list of colors item has, e.g. ["white", "pink", "purple"]
      "brand": str | None,     # item brand (if known), e.g. "Levi's"
      "platform": str          # platform on which item is listed, e.g. "depop"
+}
+```
+
+**What info it returns**:
+
+Type: `dict`
+
+Whether any constraints were loosened to help retrieve results.
+
+Schema:
+
+```py
+"loosened_constraints": {
+     "price": bool,       # Whether price constraint existed and was loosened
+     "size": bool,        # Whether size constraint existed and was loosened
 }
 ```
 
@@ -77,43 +99,43 @@ In the case of an error or no-result-found return, the agent should alert the us
 
 <!-- Describe what this tool does in 1–2 sentences -->
 
-Suggests 1-2 complete outfits given the thrifted item (the top from `search_listings`) and the user's wardrobe.
+Suggests a complete outfit given the thrifted item (the top result from `search_listings`) and the user's wardrobe.
 
 **Input parameters:**
 
 <!-- List each parameter, its type, and what it represents -->
 
 - `new_item` (`dict`): The newly thrifted clothing item.
-- `wardrobe` (`dict`): Contains a list of clothing in the user's wardrobe under an "items" key, which may be an empty list.
+- `wardrobe` (`dict`): Contains a list of wardrobe items under an "items" key, which may be an empty list.
 
 `new_item` example:
 
-```
+```json
 {
-     "id": "lst_028",
-     "title": "Suede Chelsea Boots — Tan",
-     "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
-     "category": "shoes",
-     "style_tags": ["vintage", "classic", "western", "earth tones"],
-     "size": "US 8.5",
-     "condition": "fair",
-     "price": 44.00,
-     "colors": ["tan", "camel"],
-     "brand": null,
-     "platform": "poshmark"
+  "id": "lst_028",
+  "title": "Suede Chelsea Boots — Tan",
+  "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
+  "category": "shoes",
+  "style_tags": ["vintage", "classic", "western", "earth tones"],
+  "size": "US 8.5",
+  "condition": "fair",
+  "price": 44.0,
+  "colors": ["tan", "camel"],
+  "brand": null,
+  "platform": "poshmark"
 }
 ```
 
 `wardrobe` schema (the format of each item inside the key "items"):
 
-```
+```json
 {
-     "id": "string — unique identifier for this item",
-     "name": "string — short description of the piece",
-     "category": "string — one of: tops, bottoms, outerwear, shoes, accessories",
-     "colors": ["string — list of colors this item contains"],
-     "style_tags": ["string — list of style descriptors"],
-     "notes": "string (optional) — any notes about fit, how the user styles it, etc."
+  "id": "string — unique identifier for this item",
+  "name": "string — short description of the piece",
+  "category": "string — one of: tops, bottoms, outerwear, shoes, accessories",
+  "colors": ["string — list of colors this item contains"],
+  "style_tags": ["string — list of style descriptors"],
+  "notes": "string (optional) — any notes about fit, how the user styles it, etc."
 }
 ```
 
@@ -123,15 +145,13 @@ Suggests 1-2 complete outfits given the thrifted item (the top from `search_list
 
 Type: `str`
 
-A non-empty string with outfit suggestions. If the wardrobe is empty, general styling advice instead.
+An outfit suggestion; if wardrobe is empty, general styling advice instead.
 
 **What happens if it fails or returns nothing:**
 
 <!-- What should the agent do if the wardrobe is empty or no outfit can be suggested? -->
 
-If the tool's own conditional mechanism of offering general advice fails due to an empty wardrobe, the tool returns no suggestions - an empty string (for example, in the event of a 400 error in the Groq API). Handle this edge case in the main agent loop by retrying once, and if it still doesn't work, resorting to the next relevant item from the call to `search_listings`. If in the rare case that no suggestion can be found for _all_ the matched items (or a specific max amount of them), the agent can offer helpful tips on getting a better answer, e.g.:
-
-> Sadly, I couldn't come up with an outfit suggestion for any of the items I found matching your constraints. Try adding items to your wardrobe, or tweaking or original constraints.
+If the tool's own conditional mechanism of offering general advice fails due to an empty wardrobe, the tool returns no suggestions - an empty string (for example, in the event of a 400 error in the Groq API). Handle this edge case in the main agent loop by retrying once, and if it still doesn't work, resorting to the next relevant item from the call to `search_listings`. If in the rare case that no suggestion can be found for _all_ the matched items (or a specific max amount of them), a helpful error message is returned.
 
 ---
 
@@ -141,30 +161,30 @@ If the tool's own conditional mechanism of offering general advice fails due to 
 
 <!-- Describe what this tool does in 1–2 sentences -->
 
-Generates a short, social-media-shareable outfit caption for the newly thrifted item from `search_listings` and the outfit suggestion from `suggest_outfit`.
+Generates a social media outfit caption for the newly thrifted item from `search_listings`, incorporating elements from the outfit suggestion returned by `suggest_outfit`.
 
 **Input parameters:**
 
 <!-- List each parameter, its type, and what it represents -->
 
-- `outfit` (`str`): The outfit suggestion matching the user's wardrobe.
+- `outfit` (`str`): The outfit suggestion for the newly thrifted item.
 - `new_item` (`dict`): The newly thrifted clothing item.
 
 `new_item` example:
 
-```
+```json
 {
-     "id": "lst_028",
-     "title": "Suede Chelsea Boots — Tan",
-     "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
-     "category": "shoes",
-     "style_tags": ["vintage", "classic", "western", "earth tones"],
-     "size": "US 8.5",
-     "condition": "fair",
-     "price": 44.00,
-     "colors": ["tan", "camel"],
-     "brand": null,
-     "platform": "poshmark"
+  "id": "lst_028",
+  "title": "Suede Chelsea Boots — Tan",
+  "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
+  "category": "shoes",
+  "style_tags": ["vintage", "classic", "western", "earth tones"],
+  "size": "US 8.5",
+  "condition": "fair",
+  "price": 44.0,
+  "colors": ["tan", "camel"],
+  "brand": null,
+  "platform": "poshmark"
 }
 ```
 
@@ -174,7 +194,7 @@ Generates a short, social-media-shareable outfit caption for the newly thrifted 
 
 Type: `str`
 
-A 2-4 sentence Instagram/TikTok-style caption, or an error message if the caption could not be generated.
+A 2-4 sentence social-media-style caption about the thrifted item.
 
 **What happens if it fails or returns nothing:**
 
@@ -208,19 +228,19 @@ Determines the price quality of the given item based on comparable listings in t
 
 `new_item` example:
 
-```
+```json
 {
-     "id": "lst_028",
-     "title": "Suede Chelsea Boots — Tan",
-     "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
-     "category": "shoes",
-     "style_tags": ["vintage", "classic", "western", "earth tones"],
-     "size": "US 8.5",
-     "condition": "fair",
-     "price": 44.00,
-     "colors": ["tan", "camel"],
-     "brand": null,
-     "platform": "poshmark"
+  "id": "lst_028",
+  "title": "Suede Chelsea Boots — Tan",
+  "description": "Tan suede Chelsea boots with elastic side panels. Stacked heel. Some scuffing on the toe — can be brushed out with suede cleaner.",
+  "category": "shoes",
+  "style_tags": ["vintage", "classic", "western", "earth tones"],
+  "size": "US 8.5",
+  "condition": "fair",
+  "price": 44.0,
+  "colors": ["tan", "camel"],
+  "brand": null,
+  "platform": "poshmark"
 }
 ```
 
@@ -262,15 +282,15 @@ The general order should be the following (the numbered steps are the happy path
 
 1. Parse the natural-language query to extract the description, size (if any), and max price (if any). Use a low-temperature LLM call first, then fall back to direct regex if response is malformatted.
 2. Call `search_listings` with the extracted clothing description, size (if any), and max price (if any).
-   - If the returned list is empty, mention to the user that no matching items could be found in the database. Additionally, offer tips for a successful match next time, e.g. correct spelling and clearly marked size and price.
-3. Call `suggest_outfit` with the chosen clothing item and the user's wardrobe. Initially, this chosen clothing item is the first one in the list returned from `search_listings`.
-   a. If suggestion returned is an empty string, retry once by making the same tool call to `suggest_outfit` again.
+   - If the returned list is empty, mention to the user that no matching items could be found in the database, and offer tips for a successful match next time (such as correct spelling and clearly marked size and price).
+3. Call `suggest_outfit` with the selected clothing item and the user's wardrobe. Initially, this selected clothing item is the first one in the list returned from `search_listings`.
+   a. If suggestion returned is an empty string, retry once by calling `suggest_outfit` again with the same parameters.
    b. If that result is also empty, choose the next clothing item in the list returned from `search_listings`.
    c. Go to Step 3. The newly thrifted item is the first one whose outfit suggestion is non-empty. Repeat until the specified max fallback item count is reached or all the list items run out, whichever is first.
-   d. Return a helpful error message that a suggestion cannot be made.
+   d. If all fails, return a helpful error message that a suggestion cannot be made.
 4. Call `create_fit_card` with the suggested outfit and newly thrifted item.
    a. If the returned caption is empty, retry once with the same exact call.
-   b. If that fails, return a helpful error message stating that the outfit caption was unable to be generated.
+   b. If that fails, return a helpful error message stating that the outfit caption could not be generated.
 5. Output the final caption to the user.
 
 ---
@@ -287,8 +307,8 @@ A session dictionary will be used to enforce a single source of truth. The promi
 | ------------------- | ------------- | ------------------------------------------------------------------------ |
 | `search_results`    | `[]`          | Stores the list of items returned by `search_listings`                   |
 | `selected_item`     | `{}`          | Set to `search_results[i]`, starting with `i=0` (the most relevant item) |
-| `outfit_suggestion` | `""`          | Set to the return value of `suggest_outfit`                              |
-| `fit_card`          | `""`          | Final social media caption returned by `create_fit_card`                 |
+| `outfit_suggestion` | `""`          | Stores the outfit suggestion returned by `suggest_outfit`                |
+| `fit_card`          | `""`          | Stores the final social media caption returned by `create_fit_card`      |
 | `price_comparison`  | `{}`          | Price comparison details returned by `compare_price`                     |
 
 General state management (some steps hidden for concision):
@@ -306,7 +326,7 @@ General state management (some steps hidden for concision):
 
 <!-- For each tool, describe the specific failure mode you're handling and what the agent does in response. -->
 
-The agent responses should be graceful - the tools won't throw exceptions. Rather, they will return an error message (if any) with the main result.
+The agent's error handling is graceful - the tools won't throw exceptions. Rather, they will return error messags as strings.
 
 | Tool              | Failure Mode                    | Agent Response                                                                           |
 | ----------------- | ------------------------------- | ---------------------------------------------------------------------------------------- |
