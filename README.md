@@ -6,6 +6,8 @@ It's not easy to find new clothes of the right size, price, and aesthetics - let
 
 ## Demo
 
+[**View on YouTube**](https://youtu.be/vJpxhhB5HFM)
+
 ---
 
 ## Tech Stack
@@ -304,13 +306,13 @@ Example of the handling when no results are returned from `search_listings`:
 
 Query:
 
-> designer ballgown size XXS under $5
+> designer ballgown size XXS under \$5
 
 Top listing found:
 
 > ⛔ Search results returned empty! Perhaps we don't have that item in our database.
 >
-> 💡 Pro tip: provide a short description of the clothing you want, check your spelling, and clearly mark your size (e.g. with "size") and price (e.g. with "$", "bucks", etc.)!
+> 💡 Pro tip: provide a short description of the clothing you want, check your spelling, and clearly mark your size (e.g. with "size") and price (e.g. with "\$", "bucks", etc.)!
 
 The outfit idea and fit card panels remain empty since the planning loop returns early with this error condition.
 
@@ -382,7 +384,7 @@ The function gracefully returns an error message without throwing an exception.
 
 ### Multi-Method Query Parsing
 
-A natural language user query like "vintage graphic tee for under $30" must be parsed to extract three elements: description ("vintage graphic tee"), size (none specified), and maximum price ("$30").
+A natural language user query like "vintage graphic tee for under \$30" must be parsed to extract three elements: description ("vintage graphic tee"), size (none specified), and maximum price ("\$30").
 
 The planning loop first makes an LLM call using the same model (`llama-3.3-70b-versatile`) as `suggest_outfit` and `create_fit_card`. However, this model doesn't support structured outputs, so the temperature was set to 0 for a highly deterministic and strictly formatted output. Regex is then used to extract the three elements by the expected format with some leeway.
 
@@ -402,7 +404,7 @@ Description: `"vintage graphic tee"`
 Price: `50`
 Size: `"S"`
 
-Regex alone (unless overfitted) wouldn't have been able to extract "small" (instead of "S") and "bucks" (instead of "$").
+Regex alone (unless overfitted) wouldn't have been able to extract "small" (instead of "S") and "bucks" (instead of "\$").
 
 ---
 
@@ -442,7 +444,7 @@ The interface displays what constraints had to be loosened to get non-empty resu
 
 Query:
 
-> vintage graphic tee of size XS under $1
+> vintage graphic tee of size XS under \$1
 
 Top listing found panel:
 
@@ -456,12 +458,12 @@ Top listing found panel:
 > Style tags: graphic tee, vintage, grunge, streetwear, band tee
 > Size: L
 > Condition: good
-> Price: $24.00
+> Price: \$24.00
 > Colors: black
 > Brand: UNKNOWN
 > Platform: depop
 
-There is no clothing in the dataset that is extra small or $1, but there is a vintage graphic T-shirt, which was found due to loosening both the constraints.
+There is no clothing in the dataset that is extra small or \$1, but there is a vintage graphic T-shirt, which was found due to loosening both the constraints.
 
 ---
 
@@ -558,4 +560,4 @@ Description: `"vintage graphic tee"`
 Price: `20`
 Size: `"S"`
 
-The price was hallucinated! This exact query leads to the less relevant "Y2K Baby Tee — Butterfly Print" to be surfaced instead, which is $18, satisfying the faux price constraint.
+The price was hallucinated! This exact query leads to the less relevant "Y2K Baby Tee — Butterfly Print" to be surfaced instead, which is \$18, satisfying the faux price constraint.

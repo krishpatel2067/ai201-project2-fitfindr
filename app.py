@@ -149,6 +149,10 @@ def build_interface():
     with gr.Blocks(title="FitFindr") as demo:
         gr.Markdown("""
 # FitFindr 🛍️
+_Krish A. Patel_
+                    
+_CodePath AI201: Applications of Engineering Project 2 (Summer 2026)_
+                    
 Find secondhand pieces and get outfit ideas based on your wardrobe.
 Describe what you're looking for — include size and price if you want to filter.
         """)

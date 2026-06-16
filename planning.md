@@ -432,7 +432,7 @@ I'll again use GitHub Copilot and Gemini Code Assist for this milestone. But thi
 
 Write out what a full user interaction looks like from start to finish — tool call by tool call. Use a specific example query.
 
-**Example user query:** "I'm looking for a vintage graphic tee under $30. I mostly wear baggy jeans and chunky sneakers. What's out there and how would I style it?"
+**Example user query:** "I'm looking for a vintage graphic tee under \$30. I mostly wear baggy jeans and chunky sneakers. What's out there and how would I style it?"
 
 **Step 1:**
 
