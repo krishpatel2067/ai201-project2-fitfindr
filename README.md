@@ -6,7 +6,7 @@ It's not easy to find new clothes of the right size, price, and aesthetics - let
 
 ## Demo
 
-[**View on YouTube**](https://youtu.be/vJpxhhB5HFM)
+[**View on YouTube**](https://youtu.be/vJpxhhB5HFM?si=9VCf9F_5RXROjbq9)
 
 ---
 
